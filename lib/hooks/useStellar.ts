@@ -158,11 +158,13 @@ export interface OnChainMarketView {
   market: OnChainMarket;
   /** YES price in bps, from the contract's own FPMM math. */
   yesBps: number;
+  /** Ledger the simulated read was taken at, so the UI can show its age. */
+  ledger: number;
 }
 
 export async function fetchOnChainMarket(id: bigint | string): Promise<OnChainMarketView> {
-  const market = read(await marketCore().get_market({ market_id: toId(id) }));
-  return { id: String(id), market, yesBps: Number(priceYesBps(market.reserve_yes, market.reserve_no)) };
+  const { value: market, ledger } = simulatedWithLedger(await marketCore().get_market({ market_id: toId(id) }));
+  return { id: String(id), market, yesBps: Number(priceYesBps(market.reserve_yes, market.reserve_no)), ledger };
 }
 
 export function useOnChainMarket(id: bigint | string | null | undefined) {

@@ -11,16 +11,8 @@ import { useOnChainMarket, useOnChainMarkets, type OnChainMarketView } from "@/l
 import type { Market, MarketStatus, MarketTracePreview } from "@/lib/api/markets";
 import { BACKEND_CATEGORIES, BACKEND_CATEGORY_LABELS } from "@/lib/stellar/categories";
 import { formatUsdc } from "@/lib/stellar/units";
-
-/** Where a displayed value came from, wherever backend and chain can disagree. */
-const SourceTag = ({ source }: { source: "chain" | "backend" }) => (
-  <span
-    title={source === "chain" ? "Read live from the market contract" : "OracleDesk backend estimate; may lag the chain"}
-    className={`ml-1 text-[9px] font-bold uppercase px-1 rounded ${source === "chain" ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-highest text-on-surface-variant"}`}
-  >
-    {source}
-  </span>
-);
+import { NETWORK_LABEL } from "@/lib/stellar/config";
+import { SourceTag } from "@/components/ui/source-tag";
 
 function chainStatusLabel(view: OnChainMarketView | undefined): string {
   if (!view) return "—";
@@ -78,10 +70,7 @@ const FilterBar = ({
               Resolved
             </button>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-secondary animate-pulse motion-reduce:animate-none"></span>
-            <span className="font-data-mono text-label-caps text-secondary uppercase">Stellar Testnet</span>
-          </div>
+          <span className="font-data-mono text-label-caps text-on-surface-variant uppercase">{NETWORK_LABEL}</span>
         </div>
       </div>
     </section>
@@ -147,7 +136,7 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
         <div className="space-y-4">
           <div>
             <div className="flex justify-between text-label-caps font-label-caps mb-2">
-              <span className="text-secondary">YES {yesProb}%<SourceTag source={fromChain ? "chain" : "backend"} /></span>
+              <span className="text-secondary">YES {yesProb}%<SourceTag source={fromChain ? "chain" : "backend"} ledger={view?.ledger} readAt={fromChain ? chain.dataUpdatedAt : undefined} /></span>
               <span className="text-tertiary">NO {noProb}%</span>
             </div>
             <div className="w-full h-2 rounded-full bg-outline-variant overflow-hidden flex">
@@ -165,7 +154,7 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
           </div>
           <div className="grid grid-cols-2 gap-4 border-t border-outline-variant/30 pt-4">
             <div>
-              <p className="text-label-caps text-on-surface-variant uppercase mb-1">Liquidity<SourceTag source={fromChain ? "chain" : "backend"} /></p>
+              <p className="text-label-caps text-on-surface-variant uppercase mb-1">Liquidity<SourceTag source={fromChain ? "chain" : "backend"} ledger={view?.ledger} readAt={fromChain ? chain.dataUpdatedAt : undefined} /></p>
               <p className="font-data-mono text-body-md">{liquidity}</p>
             </div>
             <div>
