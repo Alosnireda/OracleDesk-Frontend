@@ -6,12 +6,13 @@ import { useBurstFeed } from "@/lib/realtime/useBurst";
 import { formatFeedTime } from "@/lib/realtime/format";
 import { RealtimeProfiler } from "@/components/realtime-profiler";
 import Link from "next/link";
-import { useMarkets } from "@/lib/hooks/useMarkets";
+import { useMarkets, useMarketQuestionIntegrity } from "@/lib/hooks/useMarkets";
 import { useOnChainMarket, useOnChainMarkets, type OnChainMarketView } from "@/lib/hooks/useStellar";
 import type { Market, MarketStatus, MarketTracePreview } from "@/lib/api/markets";
 import { BACKEND_CATEGORIES, BACKEND_CATEGORY_LABELS } from "@/lib/stellar/categories";
 import { formatUsdc } from "@/lib/stellar/units";
 import { NETWORK_LABEL } from "@/lib/stellar/config";
+import { QuestionVerificationBadge } from "@/components/question-verification-badge";
 
 const SourceTag = ({ source }: { source: "chain" | "backend" }) => (
   <span
@@ -97,9 +98,12 @@ interface MarketCardProps {
   title: string;
   backendYesProb: number | null;
   backendLiquidity: string | null;
+  marketId?: string | null;
+  metaUri?: string | null;
+  questionHash?: string | null;
 }
 
-const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, title, backendYesProb, backendLiquidity }: MarketCardProps) => {
+const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, title, backendYesProb, backendLiquidity, marketId, metaUri, questionHash }: MarketCardProps) => {
   const chain = useOnChainMarket(onChainMarketId);
   const view = chain.data;
   const fromChain = Boolean(view);
@@ -113,6 +117,14 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
   const aiSignal = latestTrace ? (latestTrace.edge > 0.05 ? "BULLISH" : latestTrace.edge < -0.05 ? "BEARISH" : "NEUTRAL") : "ANALYZING";
   const aiStatus = latestTrace ? `${Math.abs(latestTrace.edge * 100).toFixed(1)}% EDGE` : "STABLE";
   const volume24h = chainStatusLabel(view);
+
+  const questionIntegrity = useMarketQuestionIntegrity({
+    marketId,
+    onChainMarketId,
+    displayedQuestion: title,
+    metaUri: view?.market.meta_uri ?? metaUri,
+    questionHash: view?.market.question_hash ?? questionHash,
+  });
   
   return (
     <motion.div 
@@ -134,9 +146,23 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
                 AI {aiSignal}: {aiStatus}
               </span>
             </div>
+            {questionIntegrity.data && (
+              <QuestionVerificationBadge
+                status={questionIntegrity.data.status}
+                result={questionIntegrity.data}
+                compact={true}
+              />
+            )}
           </div>
           <span className="font-data-mono text-label-caps text-on-surface-variant">EXP: {expiry}</span>
         </div>
+
+        {questionIntegrity.data?.status === "mismatch" && (
+          <div className="mb-3">
+            <QuestionVerificationBadge status="mismatch" result={questionIntegrity.data} />
+          </div>
+        )}
+
         <Link href={href} className="block">
           <h3 className="font-headline-sm text-headline-sm text-on-surface mb-6 group-hover:text-primary transition-colors line-clamp-3">
             {title}
@@ -337,6 +363,9 @@ export default function MarketsPageClient() {
                   title={m.question}
                   backendYesProb={Math.round(rawProb * 100)}
                   backendLiquidity={`$${(m.totalLiquidity).toLocaleString()}`}
+                  marketId={m.id}
+                  metaUri={m.metaUri}
+                  questionHash={m.questionHash}
                 />
               );
             })}

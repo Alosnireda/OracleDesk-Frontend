@@ -10,7 +10,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { useMarket } from "@/lib/hooks/useMarkets";
+import { useMarket, useMarketQuestionIntegrity } from "@/lib/hooks/useMarkets";
+import { QuestionVerificationBadge } from "@/components/question-verification-badge";
 import { getMarketByOnChainId } from "@/lib/api/markets";
 import { ApiError } from "@/lib/api/client";
 import { useBuy, useOnChainMarket, usePosition, useQuoteBuy, useUsdcBalance, useAccountReserve, usePrepareBuy, useMarketConfig, useLedgerNow, useEnableUsdc, useUsdcTrustline, useExactBuyQuote, usePositionState, useUsdcBalanceState, useAccountAuth, usePrepareMultisig } from "@/lib/hooks/useStellar";
@@ -333,6 +334,13 @@ function MarketQuickViewContent() {
   }
 
   const title = market?.question ?? `Market #${onChainMarketId} · ${view?.market.meta_uri ?? ""}`;
+  const questionIntegrity = useMarketQuestionIntegrity({
+    marketId,
+    onChainMarketId,
+    displayedQuestion: title,
+    metaUri: view?.market.meta_uri ?? market?.metaUri,
+    questionHash: view?.market.question_hash ?? market?.questionHash,
+  });
   const statusLabel = chainStatus
     ? chainStatus.tag === "Resolved" ? `RESOLVED ${chainStatus.values[0].tag.toUpperCase()}` : chainStatus.tag === "Void" ? "VOID" : isOpen ? "OPEN" : "CLOSED"
     : market?.status ?? "";
@@ -399,10 +407,21 @@ function MarketQuickViewContent() {
               {/* Content Area */}
               <div className="p-6 space-y-6">
                 {/* Market Question */}
-                <div>
-                  <h2 className="font-headline-sm text-headline-sm text-on-surface leading-tight">
-                    {title}
-                  </h2>
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="font-headline-sm text-headline-sm text-on-surface leading-tight">
+                      {title}
+                    </h2>
+                    {questionIntegrity.data && (
+                      <QuestionVerificationBadge
+                        status={questionIntegrity.data.status}
+                        result={questionIntegrity.data}
+                      />
+                    )}
+                  </div>
+                  {questionIntegrity.data?.status === "mismatch" && (
+                    <QuestionVerificationBadge status="mismatch" result={questionIntegrity.data} />
+                  )}
                 </div>
 
                 {fromPush && view && <PushVerifiedStatus marketId={view.id} market={view.market} position={position.data ?? null} />}
