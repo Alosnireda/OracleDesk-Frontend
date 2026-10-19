@@ -2,15 +2,20 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletActions, useWalletAddress, useWalletNetwork, useWalletSession } from "@/lib/contexts/WalletContext";
 import { useAccountReserve, useEnableUsdc, useRpcNetwork, useUsdcBalance, useUsdcTrustline, useUsdcBalanceState } from "@/lib/hooks/useStellar";
 import { NETWORK_LABEL, NETWORK_PASSPHRASE, TESTNET_PASSPHRASE, explorerAccount } from "@/lib/stellar/config";
 import { PendingValue } from "@/components/pending-value";
+import { DevProfiler } from "@/lib/dev/profiler";
 import { formatUsdc, formatXlm, shortAddress } from "@/lib/stellar/units";
 
-const WalletDropdown = () => {
-  const { address, isConnected, isConnecting, isWrongNetwork, openModal, disconnect, error } = useWallet();
-  const [isOpen, setIsOpen] = useState(false);
+const WalletDropdownBody = () => {
+  // Narrow hooks: the dropdown must not re-render when an unrelated part of
+  // the wallet changes (a session error, say).
+  const { address, isConnected } = useWalletAddress();
+  const { isWrongNetwork } = useWalletNetwork();
+  const { isConnecting, error } = useWalletSession();
+  const { openModal, disconnect } = useWalletActions();  const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const balance = useUsdcBalance(address);
@@ -230,4 +235,10 @@ const WalletDropdown = () => {
   );
 };
 
-export default WalletDropdown;
+export default function WalletDropdown() {
+  return (
+    <DevProfiler id="wallet-dropdown">
+      <WalletDropdownBody />
+    </DevProfiler>
+  );
+}

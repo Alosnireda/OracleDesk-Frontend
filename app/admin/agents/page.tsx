@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { Address, StrKey } from "@stellar/stellar-sdk";
 import { RequireWallet } from "@/components/require-wallet";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletAddress } from "@/lib/contexts/WalletContext";
 import { useAgents, useRegisterAgent, useRegistryAdmin, useUnregisterAgent, simulateAgentAction, type AgentAction, type AgentRow, type AgentSource } from "@/lib/hooks/useAgents";
 import { CONTRACTS, explorerAccount, explorerTx, isAdminAddress } from "@/lib/stellar/config";
 import { describeError } from "@/lib/stellar/errors";
@@ -52,7 +52,7 @@ export default function AdminAgentsPage() {
 }
 
 function AdminAgentsContent() {
-  const { address } = useWallet();
+  const { address } = useWalletAddress();
   const agents = useAgents();
   const registryAdmin = useRegistryAdmin();
   const register = useRegisterAgent();

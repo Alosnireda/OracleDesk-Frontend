@@ -7,7 +7,8 @@ import { useSubmitQueueState } from "@/lib/stellar/submit-queue";
 
 import React, { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletActions, useWalletAddress, useWalletNetwork } from "@/lib/contexts/WalletContext";
+import { DevProfiler } from "@/lib/dev/profiler";
 import { getTrace, ReasoningTrace } from "@/lib/api/traces";
 import { confirmCopyTrade, initiateCopyTrade } from "@/lib/api/trade";
 import { ApiError } from "@/lib/api/client";
@@ -97,7 +98,9 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 function CopyTradeContent() {
-  const { address, isConnected, isWrongNetwork, openModal, ensureSession } = useWallet();
+  const { address, isConnected } = useWalletAddress();
+  const { isWrongNetwork } = useWalletNetwork();
+  const { openModal, ensureSession } = useWalletActions();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -776,7 +779,9 @@ function CopyTradeContent() {
 export default function CopyTradePage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading Copy Trade...</div>}>
-      <CopyTradeContent />
+      <DevProfiler id="copy-trade">
+        <CopyTradeContent />
+      </DevProfiler>
     </Suspense>
   );
 }

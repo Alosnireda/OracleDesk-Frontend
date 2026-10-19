@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletAddress } from "@/lib/contexts/WalletContext";
 import { useSettings } from "@/lib/settings/useSettings";
 import { PushSettings } from "@/components/settings/push-settings";
 import { MAX_SLIPPAGE_BPS, SLIPPAGE_PRESET_BPS, parseSlippagePercent } from "@/lib/settings/settings";
@@ -41,7 +41,7 @@ const notificationRows = [
 ] as const;
 
 export default function SettingsPage() {
-  const { address, isConnected } = useWallet();
+  const { address, isConnected } = useWalletAddress();
   const { settings, setSlippageBps, setNotifications } = useSettings(address);
   const [customInput, setCustomInput] = useState("");
   const [customError, setCustomError] = useState<string | null>(null);

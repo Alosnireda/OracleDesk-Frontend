@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listMarkets } from "@/lib/api/markets";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletAddress } from "@/lib/contexts/WalletContext";
 import { describeError } from "@/lib/stellar/errors";
 import { scanHolderPositions, withBackendQuestions } from "@/lib/stellar/my-positions";
 import { useMarketCount, stellarKeys } from "@/lib/hooks/useStellar";
@@ -18,7 +18,7 @@ import { useMarketCount, stellarKeys } from "@/lib/hooks/useStellar";
  * question and the caller falls back to "Market #<id>".
  */
 export function useMyPositions() {
-  const { address } = useWallet();
+  const { address } = useWalletAddress();
   const count = useMarketCount();
   const totalMarkets = count.data;
 
