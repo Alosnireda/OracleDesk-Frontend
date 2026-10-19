@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getMarket,
   getMarketGenerationStatus,
@@ -8,6 +8,7 @@ import {
   triggerMarketGeneration,
   type ListMarketsParams,
 } from "@/lib/api/markets";
+import { nextPageParam } from "@/lib/ui/virtual-math";
 
 export function useMarkets(params: ListMarketsParams = {}) {
   return useQuery({
@@ -15,6 +16,16 @@ export function useMarkets(params: ListMarketsParams = {}) {
     queryFn: () => listMarkets(params),
     staleTime: 30_000,
     refetchInterval: 60_000,
+  });
+}
+
+export function useInfiniteMarkets(params: Omit<ListMarketsParams, "page"> = {}) {
+  return useInfiniteQuery({
+    queryKey: ["markets", "infinite", params],
+    queryFn: ({ pageParam }) => listMarkets({ ...params, page: pageParam, limit: params.limit ?? 50 }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => nextPageParam(lastPage.meta),
+    staleTime: 30_000,
   });
 }
 

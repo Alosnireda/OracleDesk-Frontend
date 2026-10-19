@@ -11,6 +11,7 @@ import { useRedeemAll, type PreparedWriteReview } from "@/lib/hooks/useStellar";
 import { shouldSkipTxReview, TxReview, TxReviewPreferenceControl } from "@/components/tx-review";
 import type { ReviewModel } from "@/lib/stellar/tx-decode";
 import { TreasuryRiskLimits } from "@/components/treasury-risk-limits";
+import { VirtualTableBody } from "@/components/ui/virtual-list";
 
 const TerminalLog = () => {
   const [logs, setLogs] = useState([
@@ -89,11 +90,16 @@ interface PositionRowProps {
   status: string;
   resolved?: boolean;
   claimable?: boolean;
+  ariaRowIndex?: number;
 }
 
-const PositionRow = ({ market, category, platform, side, sideColor, entry, prob, yesNo, size, pnl, pnlPercent, pnlColor, status, resolved, claimable }: PositionRowProps) => {
+const PositionRow = ({ market, category, platform, side, sideColor, entry, prob, yesNo, size, pnl, pnlPercent, pnlColor, status, resolved, claimable, ariaRowIndex }: PositionRowProps) => {
   return (
-    <tr className={`transition-colors border-b border-outline-variant hover:bg-surface-container/50 ${resolved ? 'bg-surface-container-highest' : ''}`}>
+    <tr
+      aria-rowindex={ariaRowIndex}
+      data-virtual-table-row={ariaRowIndex !== undefined ? ariaRowIndex - 2 : undefined}
+      className={`transition-colors border-b border-outline-variant hover:bg-surface-container/50 ${resolved ? 'bg-surface-container-highest' : ''}`}
+    >
       <td className="px-6 py-4 font-body-md text-on-surface max-w-xs">
         <span className="block truncate font-semibold">{market}</span>
         <span className="text-[11px] text-outline uppercase">{category} • {platform}</span>
@@ -502,9 +508,12 @@ export default function PortfolioPage() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left min-w-[1000px]">
+          <table
+            className="w-full border-collapse text-left min-w-[1000px]"
+            aria-rowcount={positions.length > 0 ? positions.length + 1 : undefined}
+          >
             <thead>
-              <tr className="bg-surface font-label-caps text-label-caps text-outline border-b border-outline-variant">
+              <tr aria-rowindex={1} className="bg-surface font-label-caps text-label-caps text-outline border-b border-outline-variant">
                 <th className="px-6 py-4 font-semibold">MARKET</th>
                 <th className="px-4 py-4 font-semibold">SIDE</th>
                 <th className="px-4 py-4 font-semibold text-right">ENTRY</th>
@@ -515,19 +524,29 @@ export default function PortfolioPage() {
                 <th className="px-6 py-4 font-semibold text-right">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {isPositionsLoading ? (
+            {isPositionsLoading ? (
+              <tbody className="divide-y divide-outline-variant">
                 <tr>
                   <td colSpan={8} className="px-6 py-8 text-center text-on-surface-variant">Loading positions...</td>
                 </tr>
-              ) : positions.length === 0 ? (
+              </tbody>
+            ) : positions.length === 0 ? (
+              <tbody className="divide-y divide-outline-variant">
                 <tr>
                   <td colSpan={8} className="px-6 py-8 text-center text-on-surface-variant">No active positions found.</td>
                 </tr>
-              ) : (
-                positions.map((pos) => (
+              </tbody>
+            ) : (
+              <VirtualTableBody
+                items={positions}
+                colSpan={8}
+                getKey={(pos) => pos.id}
+                estimateSize={() => 68}
+                restorationKey="portfolio_positions"
+                renderRow={(pos, _idx, a11y) => (
                   <PositionRow 
                     key={pos.id}
+                    ariaRowIndex={a11y["aria-rowindex"]}
                     market={pos.market.question}
                     category={pos.market.category}
                     platform={pos.market.onChainMarketId !== null ? `On-chain #${pos.market.onChainMarketId}` : "Not on-chain"}
@@ -544,9 +563,9 @@ export default function PortfolioPage() {
                     resolved={pos.status !== 'OPEN'}
                     claimable={pos.status === 'CLOSED'}
                   />
-                ))
-              )}
-            </tbody>
+                )}
+              />
+            )}
           </table>
         </div>
       </section>
