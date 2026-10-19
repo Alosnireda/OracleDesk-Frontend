@@ -48,3 +48,40 @@ export function useMarketGenerationStatus(jobId: string | undefined) {
     },
   });
 }
+
+import {
+  verifyMarketQuestion,
+  formatHashHex,
+  getCachedQuestionCheck,
+  setCachedQuestionCheck,
+  type QuestionIntegrityCheck,
+} from "@/lib/stellar/market-question";
+
+export function useMarketQuestionIntegrity(params: {
+  marketId?: string | null;
+  onChainMarketId?: string | null;
+  displayedQuestion: string;
+  metaUri?: string | null;
+  questionHash?: Buffer | Uint8Array | string | null;
+}) {
+  const committedHash = formatHashHex(params.questionHash);
+  const key = `${params.marketId || params.onChainMarketId || "unknown"}:${committedHash || "no-hash"}`;
+
+  return useQuery({
+    queryKey: ["market-question-integrity", key, params.displayedQuestion],
+    queryFn: async (): Promise<QuestionIntegrityCheck> => {
+      const cached = getCachedQuestionCheck(key);
+      if (cached && cached.displayedQuestion === params.displayedQuestion) return cached;
+      const res = await verifyMarketQuestion({
+        displayedQuestion: params.displayedQuestion,
+        metaUri: params.metaUri,
+        questionHash: params.questionHash,
+      });
+      setCachedQuestionCheck(key, res);
+      return res;
+    },
+    staleTime: Infinity,
+    enabled: Boolean(params.displayedQuestion),
+  });
+}
+

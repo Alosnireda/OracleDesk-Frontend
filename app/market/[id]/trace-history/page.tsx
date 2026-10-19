@@ -72,10 +72,21 @@ export default function MarketTraceHistoryPage() {
           <span className="material-symbols-outlined text-base">arrow_back</span>
           Back to Market
         </Link>
-        <h1 className="font-display-lg text-display-lg text-on-surface">Market Trace History</h1>
-        <p className="text-on-surface-variant mt-2 max-w-2xl font-body-lg text-body-lg">
-          Compare successive reasoning traces and see how an agent&apos;s estimates evolved.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display-lg text-display-lg text-on-surface">Market Trace History</h1>
+            <p className="text-on-surface-variant mt-2 max-w-2xl font-body-lg text-body-lg">
+              Compare successive reasoning traces and see how an agent&apos;s estimates evolved.
+            </p>
+          </div>
+          <Link
+            href={`/reasoning/verify?marketId=${marketId}&onChainMarketId=${marketId}`}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-label-caps text-xs font-bold hover:bg-primary/90 transition-all shadow-sm shrink-0"
+          >
+            <span className="material-symbols-outlined text-sm">fact_check</span>
+            Batch Audit Traces
+          </Link>
+        </div>
       </div>
 
       <TraceHistoryViewer
