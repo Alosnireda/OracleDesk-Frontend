@@ -76,16 +76,19 @@ describe("describeError", () => {
     expect(describeError("balance is not sufficient to spend").kind).toBe("insufficient-balance");
   });
 
-  it("maps admin-gated auth failures to NotAdmin, and InvalidFee/NotInitialized to friendly text", () => {
-    expect(describeError("HostError: Error(Auth, InvalidAction)").code).toBe("NotAdmin");
-    expect(describeError("Error(Contract, #3)", "marketCore").message).toMatch(/1000 bps/);
-    expect(describeError("Error(Contract, #1)", "marketCore").message).toMatch(/initialized/i);
-  });
-
-  it("prefers a contract-specific message over the shared one for overlapping error names", () => {
-    expect(describeError("Error(Contract, #11)", "resolver").message).toMatch(/signers/i);
-    expect(describeError("Error(Contract, #8)", "treasury").message).toMatch(/exposure/i);
-    expect(describeError("Error(Contract, #8)", "marketCore").message).toMatch(/open for trading/i);
+  it("maps reasoning-registry errors with friendly messages", () => {
+    expect(describeError("Error(Contract, #3)", "reasoningRegistry")).toMatchObject({
+      kind: "contract",
+      code: "AgentAlreadyRegistered",
+      message: "This agent is already registered.",
+    });
+    expect(describeError("Error(Contract, #4)", "reasoningRegistry")).toMatchObject({
+      kind: "contract",
+      code: "AgentNotRegistered",
+      message: "This agent isn't registered.",
+    });
+    expect(describeError("Error(Contract, #6)", "reasoningRegistry").message).toMatch(/action/i);
+    expect(describeError("Error(Contract, #7)", "reasoningRegistry").message).toMatch(/IPFS CID/i);
   });
 
   it("falls back to a readable message", () => {

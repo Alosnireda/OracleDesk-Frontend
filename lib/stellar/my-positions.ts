@@ -72,7 +72,7 @@ export function yesPriceBps(market: Pick<Market, "reserve_yes" | "reserve_no">):
  */
 export function positionValue(
   position: Pick<Position, "yes" | "no">,
-  market: Market,
+  market: Pick<Market, "status" | "reserve_yes" | "reserve_no">,
 ): { valueRaw: bigint; yesBps: number | null } | null {
   const settlement = settlementOf(market.status);
   if (settlement) return { valueRaw: settleValue(settlement, position.yes, position.no), yesBps: null };

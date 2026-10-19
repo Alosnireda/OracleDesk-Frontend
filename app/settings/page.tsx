@@ -173,6 +173,11 @@ export default function SettingsPage() {
               ))}
             </div>
           </SettingsSection>
+
+          {/* Push Notifications (device-level, per wallet) */}
+          <SettingsSection title="Push Notifications" icon="notifications">
+            <PushSettings />
+          </SettingsSection>
         </div>
       </div>
     </main>

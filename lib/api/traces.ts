@@ -105,6 +105,8 @@ export interface PaymentEvent {
   traceId?: string | null;
   walletAddress?: string;
   currency?: SettlementCurrency;
+  /** Backend verification state; absent on the unlock receipt shape. */
+  status?: string;
   createdAt: string;
   status?: string;
   confirmedAt?: string | null;

@@ -1,5 +1,5 @@
 import { Address, nativeToScVal, rpc, scValToNative } from "@stellar/stellar-sdk";
-import { AssembledTransaction } from "@stellar/stellar-sdk/contract";
+import { AssembledTransaction, Client as ContractClient, Spec } from "@stellar/stellar-sdk/contract";
 import type { ClientOptions, SignTransaction } from "@stellar/stellar-sdk/contract";
 import { Client as MarketCoreClient, type Category, type Outcome } from "./generated/market-core";
 import { Client as TreasuryClient } from "./generated/treasury";
@@ -63,6 +63,9 @@ export function options(
     networkPassphrase: NETWORK_PASSPHRASE,
     rpcUrl,
     allowHttp: rpcUrl.startsWith("http://"),
+    // One Server (one HTTP client, one connection pool) for every client and
+    // every AssembledTransaction. ClientOptions.server is part of SDK 16.
+    server: rpcServer(rpcUrl),
     ...(signer ? { publicKey: signer.publicKey, signTransaction: signer.signTransaction } : {}),
     ...(extra?.timeoutInSeconds !== undefined ? { timeoutInSeconds: extra.timeoutInSeconds } : {}),
   };

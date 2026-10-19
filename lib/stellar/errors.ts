@@ -52,6 +52,10 @@ export const FRIENDLY: Record<string, string> = {
   DisputeWindowOpen: "The dispute window is still open.",
   // reasoning-registry
   TraceNotFound: "This reasoning trace isn't on-chain.",
+  AgentAlreadyRegistered: "This agent is already registered.",
+  AgentNotRegistered: "This agent isn't registered.",
+  EmptyAction: "The trace action can't be empty.",
+  EmptyCid: "The trace needs an IPFS CID.",
   Unauthorized: "Your wallet isn't allowed to do this.",
   // shared across contracts
   NotInitialized: "This contract hasn't been initialized yet.",

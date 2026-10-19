@@ -1,3 +1,4 @@
+import { StrKey } from "@stellar/stellar-sdk";
 import deployments from "./generated/deployments.testnet.json";
 
 /**
