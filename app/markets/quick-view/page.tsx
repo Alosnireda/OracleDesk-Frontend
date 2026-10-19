@@ -12,7 +12,8 @@ import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useMarket, useMarketQuestionIntegrity } from "@/lib/hooks/useMarkets";
 import { QuestionVerificationBadge } from "@/components/question-verification-badge";
-import { getMarketByOnChainId } from "@/lib/api/markets";
+import { ResolverStatusPanel } from "@/components/resolver-status-panel";
+import { getMarketByOnChainId, getResolution } from "@/lib/api/markets";
 import { ApiError } from "@/lib/api/client";
 import { useBuy, useOnChainMarket, usePosition, useQuoteBuy, useUsdcBalance, useAccountReserve, usePrepareBuy, useMarketConfig, useLedgerNow, useEnableUsdc, useUsdcTrustline, useExactBuyQuote, usePositionState, useUsdcBalanceState, useAccountAuth, usePrepareMultisig } from "@/lib/hooks/useStellar";
 import { useWallet } from "@/lib/contexts/WalletContext";
@@ -102,6 +103,12 @@ function MarketQuickViewContent() {
   const market = backendById.data ?? backendByChainId.data ?? null;
   const onChainMarketId = market?.onChainMarketId ?? onChainIdParam ?? null;
   const chain = useOnChainMarket(onChainMarketId);
+  const resolutionQuery = useQuery({
+    queryKey: ["market-resolution", marketId || onChainMarketId],
+    queryFn: () => getResolution((marketId ?? market?.id) as string),
+    enabled: Boolean(marketId || market?.id),
+    retry: false,
+  });
 
   const { address, isConnected, isWrongNetwork, openModal } = useWallet();
   // Saved in /settings; useSyncExternalStore makes it available before the
@@ -663,6 +670,14 @@ function MarketQuickViewContent() {
                 )}
 
                 {onChainMarketId !== null && <TradeTape onChainMarketId={onChainMarketId} limit={20} compact />}
+
+                {/* Resolution Status & Commitment Panel */}
+                <ResolverStatusPanel
+                  resolverState={resolutionQuery.data?.resolverState ?? "Unconfigured"}
+                  marketStatus={statusLabel}
+                  resolutionHash={view?.market.resolution_hash ?? market?.resolutionHash ?? resolutionQuery.data?.resolutionHash}
+                  resolutionSpec={market?.resolutionSpec ?? resolutionQuery.data?.resolutionSpec}
+                />
 
                 {/* AI Reasoning Snippet */}
                 <div className="bg-[#f0f9fa] border border-primary-container/20 p-4 rounded-lg space-y-2 relative overflow-hidden">
