@@ -25,6 +25,40 @@ A backend market links to the chain through `onChainMarketId` (market-core's `u6
 - After connecting, the wallet signs the backend's SEP-10 style challenge transaction (`signTransaction`, which every Stellar wallet supports; `signMessage` is not universal). The backend returns a JWT. A stored session for a different address is cleared, never reused.
 - `useWallet()` exposes `address`, `isWrongNetwork`, a `signer` for the binding clients, `openModal`, `ensureSession` and `disconnect`.
 
+### Wallet context slices
+
+The provider publishes six memoized slices instead of one context value, so a
+component is only re-rendered by the part of the wallet it actually reads.
+Each slice is a separate React context with a value that only changes when
+its own fields change.
+
+| Hook | Slice | Changes when |
+|---|---|---|
+| `useWalletAddress()` | identity | the connected account changes |
+| `useWalletNetwork()` | network | the wallet reports a network, or it is the wrong one |
+| `useWalletSession()` | session | the backend session is created or lost, or an error is set |
+| `useWalletSigner()` | signer | the connected account changes (the signer is bound to it) |
+| `useWalletActions()` | actions | never — `openModal`, `ensureSession`, `withSession` and `disconnect` keep the same identity for the life of the provider |
+| `useWalletMeta()` | meta | the kit reports which wallet module is in use |
+
+`useWallet()` is kept as a compatibility facade: it returns the same
+`WalletContextValue` shape as before, composed from the slices. **It
+re-renders on any wallet change**, so it should be avoided in components that
+render often (the trade ticket, the wallet dropdown, the trade tape). Use the
+narrow hook for the field you need.
+
+The actions read the wallet machine's current state when they are called, not
+when they were created, so a stale closure cannot sign in with a previous
+account. The machine also keeps the *same state object* when an event does not
+change anything (a kit event that repeats the current address and network),
+so the provider does not re-render at all for kit chatter.
+
+The quick-view modal keeps its amount input, quote and trade in
+`components/market/buy-ticket.tsx`, so typing in the amount field re-renders
+the ticket and nothing else in the modal. The measurements are in
+`docs/perf/wallet-context.md`; `lib/dev/profiler.tsx` logs the same numbers
+from the browser during development.
+
 ## Contract calls
 
 - `lib/stellar/clients.ts` builds a generated binding `Client` per contract, optionally with the wallet as signer. The USDC Stellar Asset Contract has no Wasm and so no bindings; `token.balance` and `token.transfer` are built with `AssembledTransaction.build`.

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletAddress } from "@/lib/contexts/WalletContext";
 import { explorerTx } from "@/lib/stellar/config";
 import { formatUsdc } from "@/lib/stellar/units";
 import { useTxTracker, type TrackedTx } from "@/lib/stellar/tx-tracker";
@@ -10,7 +10,7 @@ import { unlockDailyPass } from "@/lib/api/traces";
 
 export function TxToastContainer() {
   const { list, dismiss } = useTxTracker();
-  const { address } = useWallet();
+  const { address } = useWalletAddress();
   const [showAll, setShowAll] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [unlockingHash, setUnlockingHash] = useState<string | null>(null);

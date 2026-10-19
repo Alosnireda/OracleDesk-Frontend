@@ -176,9 +176,17 @@ export default function PremiumPageClient() {
 
   useEffect(() => {
     if (!address || isWrongNetwork) return;
-    for (const payment of listPending(address, NETWORK_PASSPHRASE)) {
-      if (payment.state === "submitted" || payment.state === "verifying") void resumePayment(payment);
-    }
+    const unfinished = listPending(address, NETWORK_PASSPHRASE).filter(
+      (payment) => payment.state === "submitted" || payment.state === "verifying",
+    );
+    if (unfinished.length === 0) return;
+    // Resume after this effect body has returned. Verifying a payment updates
+    // the pending list, and doing that synchronously inside the effect would
+    // be a cascading render.
+    const timer = window.setTimeout(() => {
+      for (const payment of unfinished) void resumePayment(payment);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [address, isWrongNetwork, resumePayment]);
 
   const fees = prepareTransfer.data?.fees;

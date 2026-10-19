@@ -85,6 +85,8 @@ describe("trace worker", () => {
 
     const message = posted.find((p) => p.message.type === "result")!.message as Extract<TraceWorkerResponse, { type: "result" }>;
     expect(message.check).toMatchObject({ status: "unavailable" });
-    expect(pulls).toBeLessThanOrEqual(5);
+    // The reader stops after the chunk that crosses maxBytes. The stream may
+    // have prefetched one more chunk into its queue, so allow for that.
+    expect(pulls).toBeLessThanOrEqual(6);
   });
 });

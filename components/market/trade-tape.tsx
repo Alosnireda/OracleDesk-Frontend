@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useMarketTrades } from "@/lib/hooks/useMarketTrades";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletAddress } from "@/lib/contexts/WalletContext";
 import { explorerAccount, explorerTx } from "@/lib/stellar/config";
 import { formatUsdc, shortAddress } from "@/lib/stellar/units";
 
@@ -23,7 +23,7 @@ function MarketTape({ id, limit, compact }: { id: string; limit: number; compact
   const [scrollTop, setScrollTop] = useState(0);
   const query = useMarketTrades(id, { limit: want });
   const rows = query.data?.trades ?? [];
-  const { address } = useWallet();
+  const { address } = useWalletAddress();
   const first = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
   const last = Math.min(rows.length, first + VISIBLE + OVERSCAN * 2);
   const titles = ["Time", "Side", "Action", "Trader", "USDC", "Shares", "Fee", "YES after", "Transaction"];

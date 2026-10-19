@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Keypair, scValToNative, TransactionBuilder, xdr } from "@stellar/stellar-sdk";
 import type { AssembledTransaction } from "@stellar/stellar-sdk/contract";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletAddress, useWalletNetwork, useWalletSigner } from "@/lib/contexts/WalletContext";
 import { currentRpcUrl, marketCore, reasoningRegistry, rpcPool, token, Outcomes, rpcServer, withPinnedRpc, type OutcomeTag, type Signer } from "@/lib/stellar/clients";
 import { createMarketBatcher } from "@/lib/stellar/market-batch";
 import { DEBUG_ENABLED } from "@/lib/diagnostics/flags";
@@ -442,7 +442,7 @@ export function useAccountReserve(address: string | null | undefined) {
 }
 
 export function useUsdcTrustline(owner: string | null | undefined) {
-  const { isWrongNetwork } = useWallet();
+  const { isWrongNetwork } = useWalletNetwork();
   return useQuery({
     queryKey: stellarKeys.trustline(owner ?? ""),
     enabled: Boolean(owner) && !isWrongNetwork,
@@ -687,10 +687,13 @@ export function useVerifiedTrace(onChainTraceId: bigint | string | null | undefi
 // ─── Writes ─────────────────────────────────────────────────────────────────
 
 function useWriteGuard(): () => Signer {
-  const { signer, isWrongNetwork } = useWallet();
+  const signer = useWalletSigner();
+  const { isWrongNetwork } = useWalletNetwork();
   const queryClient = useQueryClient();
   const updatePending = useUpdatePending();
-  return () => {
+  // The guard's identity is stable, so the write hooks don't get a new
+  // mutation function on every wallet change.
+  return useCallback(() => {
     // Never sign with an outdated bundle (stale contract ids or slippage logic).
     if (updatePending) {
       throw new UserFacingError({ kind: "unknown", message: "Reload to update OracleDesk before signing." });
@@ -711,7 +714,7 @@ function useWriteGuard(): () => Signer {
       });
     }
     return signer;
-  };
+  }, [signer, isWrongNetwork, queryClient, updatePending]);
 }
 
 export function useInvalidateAfterTrade() {
@@ -1342,7 +1345,7 @@ export interface RedeemAllController {
 }
 
 export function useRedeemAll(): RedeemAllController {
-  const { address } = useWallet();
+  const { address } = useWalletAddress();
   const guard = useWriteGuard();
   const queryClient = useQueryClient();
   const [discoveryState, setDiscovery] = useState<RedeemDiscovery | null>(null);
