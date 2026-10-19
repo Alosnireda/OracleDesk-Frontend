@@ -5,6 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { WalletProvider } from "@/lib/contexts/WalletContext";
 import "./globals.css";
 import { RealtimeProvider } from "@/lib/realtime/RealtimeProvider";
+import { HealthProvider } from "@/lib/health/HealthProvider";
 import { InboxProvider } from "@/lib/notifications/InboxProvider";
 import { PwaRegistrar } from "@/components/pwa/pwa-registrar";
 import { DebugMount } from "@/components/debug/debug-mount";

@@ -70,39 +70,49 @@ sources.ADMIN_ADDRESSES = ADMIN_ADDRESSES.length ? "env" : "fallback";
 export const isAdminAddress = (address: string | null | undefined) =>
   Boolean(address) && ADMIN_ADDRESSES.includes(address as string);
 
+export const DEFAULT_IPFS_GATEWAY = "https://ipfs.io/ipfs";
+export const MAX_IPFS_GATEWAYS = 5;
+export const DEFAULT_IPFS_MAX_TRACE_BYTES = 1024 * 1024;
+
 /**
- * Extra reasoning-registry agents an operator knows about, for /admin/agents.
- * The page also discovers agents from AgentRegistered/TracePublished events
- * and the deployment file; this list covers agents whose events are older than
- * the RPC's retention window. Invalid entries are dropped instead of being
- * sent to the contract.
+ * Parses a comma-separated gateway pool. Only https URLs are kept (plain http
+ * only for localhost, for local testing). Entries are de-duplicated, trailing
+ * slashes removed, and the pool is capped at MAX_IPFS_GATEWAYS. Returns an
+ * empty list when nothing valid is left, so the caller can fall back.
  */
-const validAgentAddress = (address: string) => {
-  try {
-    return StrKey.isValidEd25519PublicKey(address) || StrKey.isValidContract(address);
-  } catch {
-    return false;
+export function parseGateways(raw: string | undefined): string[] {
+  const gateways: string[] = [];
+  for (const entry of (raw ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+    let url: URL;
+    try {
+      url = new URL(entry);
+    } catch {
+      continue;
+    }
+    const localhost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && localhost)) continue;
+    const normalized = url.toString().replace(/\/+$/, "");
+    if (!gateways.includes(normalized)) gateways.push(normalized);
+    if (gateways.length === MAX_IPFS_GATEWAYS) break;
   }
-};
+  return gateways;
+}
 
-export const KNOWN_AGENTS: readonly string[] = (process.env.NEXT_PUBLIC_KNOWN_AGENTS ?? "")
-  .split(",")
-  .map((address) => address.trim())
-  .filter((address) => {
-    if (!address) return false;
-    if (validAgentAddress(address)) return true;
-    console.warn(`[config] Ignoring invalid NEXT_PUBLIC_KNOWN_AGENTS entry: ${address}`);
-    return false;
-  });
-sources.KNOWN_AGENTS = KNOWN_AGENTS.length ? "env" : "fallback";
+const ipfsGatewayEnv = process.env.NEXT_PUBLIC_IPFS_GATEWAY_URL;
+sources.IPFS_GATEWAY = ipfsGatewayEnv?.trim() ? "env" : "fallback";
+const parsedGateways = parseGateways(ipfsGatewayEnv);
+if (ipfsGatewayEnv?.trim() && parsedGateways.length === 0) {
+  console.warn(`NEXT_PUBLIC_IPFS_GATEWAY_URL has no usable https gateway; using ${DEFAULT_IPFS_GATEWAY}.`);
+}
+/** Gateways tried for trace content, in priority order. Use https (or http://localhost). */
+export const IPFS_GATEWAYS: readonly string[] = parsedGateways.length ? parsedGateways : [DEFAULT_IPFS_GATEWAY];
+export const IPFS_GATEWAY = IPFS_GATEWAYS[0]; // unchanged export for existing callers
 
-/** Default YES-price tolerance (bps) for the admin diagnostics sampler. */
-export const DIAGNOSTICS_TOLERANCE_BPS = (() => {
-  const value = Number(process.env.NEXT_PUBLIC_DIAGNOSTICS_TOLERANCE_BPS);
-  return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 100;
-})();
-
-export const IPFS_GATEWAY = env(process.env.NEXT_PUBLIC_IPFS_GATEWAY_URL, "https://ipfs.io/ipfs", "IPFS_GATEWAY");
+const ipfsMaxBytesEnv = Number(process.env.NEXT_PUBLIC_IPFS_MAX_TRACE_BYTES);
+/** Largest trace body read from a gateway. Larger responses are abandoned while streaming. */
+export const IPFS_MAX_TRACE_BYTES =
+  Number.isSafeInteger(ipfsMaxBytesEnv) && ipfsMaxBytesEnv > 0 ? ipfsMaxBytesEnv : DEFAULT_IPFS_MAX_TRACE_BYTES;
+sources.IPFS_MAX_TRACE_BYTES = process.env.NEXT_PUBLIC_IPFS_MAX_TRACE_BYTES?.trim() ? "env" : "fallback";
 
 /** The contracts repo's x402 trace service (per-trace unlocks). Empty if not deployed. */
 export const X402_URL = env(process.env.NEXT_PUBLIC_X402_URL, "", "X402_URL");

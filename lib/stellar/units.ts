@@ -84,6 +84,18 @@ export function maxIn(target: bigint, slippageBps: number | bigint): bigint {
   return (numerator + BPS - 1n) / BPS;
 }
 
+/**
+ * Converts a probability in [0, 1] (the backend's float) to integer basis
+ * points. This is the one place such a float enters bigint math. Rejects NaN,
+ * infinities and anything outside the range.
+ */
+export function probabilityToBps(probability: number): bigint {
+  if (!Number.isFinite(probability) || probability < 0 || probability > 1) {
+    throw new Error("A probability must be between 0 and 1");
+  }
+  return BigInt(Math.round(probability * Number(BPS)));
+}
+
 /** Share of `amount` given in basis points, rounded down. */
 export const shareOf = (amount: bigint, bps: number | bigint) => (amount * BigInt(bps)) / BPS;
 

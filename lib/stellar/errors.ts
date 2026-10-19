@@ -12,6 +12,18 @@ const TABLES: Record<ContractName, Record<number, { message: string }>> = {
   reasoningRegistry: ReasoningRegistryErrors,
 };
 
+/**
+ * Messages for error names that mean different things in different contracts
+ * (NotInitialized exists in four of them). Checked before FRIENDLY, and only
+ * for numeric codes from that contract's own table.
+ */
+const CONTRACT_FRIENDLY: Partial<Record<ContractName, Record<string, string>>> = {
+  treasury: {
+    NotInitialized: "The treasury isn't set up yet.",
+    InvalidConfig: "The treasury's risk settings are invalid.",
+  },
+};
+
 /** Plain-language messages for contract error names, from the user's point of view. */
 export const FRIENDLY: Record<string, string> = {
   // market-core
@@ -172,7 +184,10 @@ export function describeError(err: unknown, contract: ContractName = "marketCore
   const code = /Error\(Contract, #(\d+)\)/.exec(text);
   if (code) {
     const name = TABLES[contract][Number(code[1])]?.message;
-    if (name) return { kind: "contract", code: name, message: FRIENDLY[name] ?? `The contract rejected this (${name}).` };
+    if (name) {
+      const message = CONTRACT_FRIENDLY[contract]?.[name] ?? FRIENDLY[name];
+      return { kind: "contract", code: name, message: message ?? `The contract rejected this (${name}).` };
+    }
     return { kind: "contract", message: `The contract rejected this (error ${code[1]}).` };
   }
   // A binding Err may carry just the name.

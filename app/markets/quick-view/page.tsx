@@ -239,6 +239,14 @@ function MarketQuickViewContent() {
       setBuyStatus("This market closes too soon to safely place a trade.");
       return;
     }
+    if (health.rpc.status === "down") {
+      setBuyStatus("Stellar RPC isn't responding; the trade can't be simulated.");
+      return;
+    }
+    if (now !== null && view && isStale(chain.dataUpdatedAt, now, MARKET_STALE_AFTER_SEC)) {
+      setBuyStatus("Refreshing the price before you trade…");
+      await chain.refetch();
+    }
     setBuyStatus(null);
     try {
       const result = await buy.mutateAsync({
@@ -374,7 +382,7 @@ function MarketQuickViewContent() {
                 <div className="flex items-center gap-2">
                   <span className={`${isOpen ? 'bg-secondary-container text-on-secondary-container' : 'bg-surface-container-highest text-on-surface-variant'} font-label-caps text-[10px] px-2 py-0.5 rounded-full font-bold`}>
                     {statusLabel}
-                    {chainStatus && <SourceTag source="chain" />}
+                    {chainStatus && <SourceTag source="chain" ledger={view?.ledger} readAt={chain.dataUpdatedAt} />}
                   </span>
                   {countdown && <span className="text-[10px] font-data-mono text-on-surface-variant">{countdown}</span>}
                   <span className="font-label-caps text-label-caps text-outline uppercase font-bold tracking-wider">{categoryLabel}</span>
@@ -403,7 +411,7 @@ function MarketQuickViewContent() {
                   <div className="space-y-1">
                     <div className="flex items-baseline gap-2">
                       <span className="font-display-lg text-display-lg text-on-surface text-4xl">{yesProb}%</span>
-                      <SourceTag source={fromChain ? "chain" : "backend"} />
+                      <SourceTag source={fromChain ? "chain" : "backend"} ledger={view?.ledger} readAt={fromChain ? chain.dataUpdatedAt : undefined} />
                     </div>
                     <p className="font-label-caps text-label-caps text-outline uppercase font-bold tracking-wider">YES price</p>
                     {view?.ledger != null && (
@@ -571,7 +579,7 @@ function MarketQuickViewContent() {
                     {position.data && (position.data.yes > 0n || position.data.no > 0n || positionState.data?.provisional || positionState.data?.awaitingRpc) && (
                       <p className="text-[11px] font-data-mono text-on-surface">
                         Your position: {formatUsdc(position.data.yes, { maxDecimals: 2 })} YES · {formatUsdc(position.data.no, { maxDecimals: 2 })} NO
-                        <PendingValue state={positionState.data} fallback={<SourceTag source="chain" />} />
+                        <PendingValue state={positionState.data} fallback={<SourceTag source="chain" ledger={view?.ledger} readAt={chain.dataUpdatedAt} />} />
                       </p>
                     )}
 
@@ -658,7 +666,7 @@ function MarketQuickViewContent() {
               {/* Footer Action */}
               <div className="px-6 py-4 bg-surface-container-low border-t border-outline-variant flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex flex-col items-center sm:items-start">
-                  <span className="font-data-mono text-data-mono text-on-surface font-bold">{liquidityText}<SourceTag source={fromChain ? "chain" : "backend"} /></span>
+                  <span className="font-data-mono text-data-mono text-on-surface font-bold">{liquidityText}<SourceTag source={fromChain ? "chain" : "backend"} ledger={view?.ledger} readAt={fromChain ? chain.dataUpdatedAt : undefined} /></span>
                   <span className="text-[10px] text-outline font-label-caps uppercase font-bold tracking-wider">Collateral locked</span>
                 </div>
                 <div className="flex items-center gap-3 w-full sm:w-auto">

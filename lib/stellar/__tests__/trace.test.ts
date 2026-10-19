@@ -33,8 +33,9 @@ describe("fetchAndVerifyTrace", () => {
   });
 
   it("reports tampered content as a mismatch, without the content", async () => {
+    // toMatchObject, not toEqual: results also carry per-gateway attempts and the CID check.
     const tampered = await fetchAndVerifyTrace("bafy1", hash, respond(body.replace("0.12", "0.99")));
-    expect(tampered).toEqual({ status: "mismatch", computedHash: expect.any(String) });
+    expect(tampered).toMatchObject({ status: "mismatch", computedHash: expect.any(String) });
     expect("content" in tampered).toBe(false);
   });
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useInbox } from "@/lib/notifications/InboxProvider";
 import WalletDropdown from "./WalletDropdown";
+import { HealthIndicator } from "./HealthIndicator";
 
 const Navbar = () => {
   const pathname = usePathname();
@@ -96,6 +97,7 @@ const Navbar = () => {
           </nav>
         </div>
         <div className="flex items-center gap-4">
+          <HealthIndicator />
           <Link 
             href="/notifications"
             aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}

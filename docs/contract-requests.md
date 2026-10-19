@@ -56,21 +56,12 @@ the contract's integer-rounded `calc_sell` math, then confirms the result with
 { collateral_out, shares_in }` would provide the exact inversion on-chain and
 avoid repeated local work and quote simulations.
 
-## 6. Add a read-only `get_admin()` view
+## 6. Expose treasury per-market exposure and the paused flag
 
-The reasoning registry stores its admin under `DataKey::Admin` in instance
-storage but exposes no getter. `/admin/agents` has to build that ledger key by
-hand and call `getLedgerEntries` (see `lib/stellar/registry-admin.ts`) to show
-who can register or unregister agents. A `get_admin() -> Address` view would
-remove the raw key encoding, work through normal simulation, and let the UI
-report a missing admin without special-case RPC handling.
-
-## 7. Emit `AgentUnregistered`
-
-Registration emits `AgentRegistered`, which the admin page uses as one source
-of agent addresses. Unregistration has no matching event, so the page can only
-infer it by re-reading `is_registered`; the event stream cannot show when an
-agent was removed or by which admin. An `AgentUnregistered { agent }` event,
-emitted from `unregister_agent`, would make the admin audit trail complete and
-let event-only clients update without polling every known address.
-
+The `/portfolio` risk panel reads `get_config`, `daily_usage` and
+`available_capital` from the treasury. Two facts it would also show are only
+reachable from raw storage today: how much of `max_market` a market has used
+(`DataKey::Market(u64)` → `MarketExposure { amount, open }`), and whether the
+treasury is paused. Read-only getters `market_exposure(market_id) ->
+MarketExposure` and `paused() -> bool` would let the frontend show both
+without reading storage keys that the contract may change.
