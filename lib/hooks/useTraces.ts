@@ -11,6 +11,8 @@ import {
   verifyTrace,
   type ListTracesParams,
 } from "@/lib/api/traces";
+import { getStoredSessionWallet } from "@/lib/api/client";
+import { useWallet } from "@/lib/contexts/WalletContext";
 
 export function useTraces(params: ListTracesParams = {}) {
   return useQuery({
@@ -50,26 +52,44 @@ export function useUnlockTrace() {
 }
 
 export function useSpendingAllowance() {
+  const { address, isAuthenticated } = useWallet();
   return useQuery({
-    queryKey: ["trace-allowance"],
+    queryKey: ["trace-allowance", address],
     queryFn: getSpendingAllowance,
+    enabled: Boolean(address && isAuthenticated),
   });
 }
 
 export function useSetSpendingAllowance() {
   const queryClient = useQueryClient();
+  const { address } = useWallet();
 
   return useMutation({
     mutationFn: setSpendingAllowance,
+    onMutate: async (next) => {
+      const key = ["trace-allowance", address] as const;
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData(key);
+      queryClient.setQueryData(key, { ...next, currency: next.currency ?? "USDC" });
+      return { key, previous };
+    },
+    onError: (_error, _next, context) => {
+      if (context) queryClient.setQueryData(context.key, context.previous);
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["trace-allowance"] });
+      queryClient.invalidateQueries({ queryKey: ["trace-allowance", address] });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["trace-allowance", address] });
     },
   });
 }
 
 export function usePaymentEvents() {
+  const { address, isAuthenticated } = useWallet();
   return useQuery({
-    queryKey: ["trace-payments"],
+    queryKey: ["trace-payments", address ?? getStoredSessionWallet()],
     queryFn: getPaymentEvents,
+    enabled: Boolean(address && isAuthenticated),
   });
 }

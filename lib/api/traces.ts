@@ -71,6 +71,9 @@ export interface SpendingAllowance {
   dailyLimit: number;
   perTraceLimit: number;
   currency: SettlementCurrency;
+  spentToday?: number;
+  lastResetAt?: string;
+  isActive?: boolean;
 }
 
 /**
@@ -84,7 +87,7 @@ export interface PaymentEvent {
   id?: string;
   type: UnlockType;
   /** USDC moved by the verified transaction, in 7-decimal base units. */
-  amountRaw: string;
+  amountRaw?: string;
   /** 64-hex Stellar transaction hash; unique across all payments. */
   txHash: string;
   /** Backend trace id this payment was recorded against; null for pass-all payments. */
@@ -92,6 +95,9 @@ export interface PaymentEvent {
   walletAddress?: string;
   currency?: SettlementCurrency;
   createdAt: string;
+  amount?: number;
+  status?: "PENDING" | "CONFIRMED" | "FAILED";
+  confirmedAt?: string | null;
 }
 
 export async function listTraces(params: ListTracesParams = {}) {
@@ -152,17 +158,11 @@ export async function setSpendingAllowance(allowance: {
   return data;
 }
 
-export interface PaymentEvent {
-  id: string;
-  txHash: string;
-  type: string;
-  amountRaw: string;
-  status: string;
-  createdAt: string;
-  confirmedAt: string | null;
-}
-
 export async function getPaymentEvents() {
-  const { data } = await apiClient.get<PaymentEvent[]>("/traces/payments");
-  return data;
+  const { data } = await apiClient.get<unknown[]>("/traces/payments");
+  return data.filter((row): row is PaymentEvent => {
+    if (!row || typeof row !== "object") return false;
+    const value = row as Record<string, unknown>;
+    return typeof value.txHash === "string" && typeof value.type === "string" && typeof value.createdAt === "string" && (typeof value.amountRaw === "string" || typeof value.amount === "number");
+  });
 }
