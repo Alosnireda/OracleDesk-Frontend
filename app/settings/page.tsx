@@ -1,8 +1,12 @@
 "use client";
 
 import React, { useState } from "react";
-import Image from "next/image";
-import { PushSettings } from "@/components/settings/push-settings";
+import Link from "next/link";
+import { useWallet } from "@/lib/contexts/WalletContext";
+import { useSettings } from "@/lib/settings/useSettings";
+import { MAX_SLIPPAGE_BPS, SLIPPAGE_PRESET_BPS, parseSlippagePercent } from "@/lib/settings/settings";
+import { NETWORK_LABEL } from "@/lib/stellar/config";
+import { shortAddress } from "@/lib/stellar/units";
 
 const SettingsSection = ({ title, icon, children, className = "" }: { title: string; icon: string; children: React.ReactNode; className?: string }) => (
   <section className={`bg-surface-container-lowest border border-outline-variant p-6 rounded-lg transition-all hover:shadow-sm ${className}`}>
@@ -29,9 +33,32 @@ const ToggleSwitch = ({ checked, onChange, label, sublabel }: { checked: boolean
   </div>
 );
 
+const notificationRows = [
+  { key: "execution", label: "Trade confirmations", sublabel: "Submitted and confirmed fills." },
+  { key: "news", label: "Price and market updates", sublabel: "New reasoning traces or outcome changes." },
+  { key: "shifts", label: "Probability shifts", sublabel: "When a market moves more than 5%." },
+] as const;
+
 export default function SettingsPage() {
-  const [slippage, setSlippage] = useState("0.5%");
-  const [autoApprove, setAutoApprove] = useState(false);
+  const { address, isConnected } = useWallet();
+  const { settings, setSlippageBps, setNotifications } = useSettings(address);
+  const [customInput, setCustomInput] = useState("");
+  const [customError, setCustomError] = useState<string | null>(null);
+
+  const applyCustomSlippage = (value: string) => {
+    setCustomInput(value);
+    const parsed = parseSlippagePercent(value);
+    if (!value.trim()) {
+      setCustomError(null);
+      return;
+    }
+    if (parsed === null) {
+      setCustomError("Enter a value like 0.5 or 1.5");
+      return;
+    }
+    setCustomError(null);
+    setSlippageBps(parsed);
+  };
 
   return (
     <main className="flex-grow pt-8 pb-20 px-gutter max-w-container-max-width mx-auto w-full">
@@ -43,18 +70,16 @@ export default function SettingsPage() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
-        {/* Left Column: Wallet */}
         <div className="md:col-span-7 space-y-8">
-          {/* Wallet Section */}
           <SettingsSection title="Wallet" icon="account_balance_wallet">
-            {wallet.isConnected && wallet.address ? (
+            {isConnected && address ? (
               <div className="p-4 bg-surface-container-low border border-outline-variant rounded flex justify-between items-center">
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="material-symbols-outlined text-primary">account_balance_wallet</span>
                   <div className="min-w-0">
                     <p className="font-label-caps text-label-caps text-on-surface-variant">Connected Wallet</p>
-                    <p className="font-data-mono text-data-mono text-on-surface truncate" title={wallet.address}>
-                      {shortAddress(wallet.address, 6, 6)}{" "}
+                    <p className="font-data-mono text-data-mono text-on-surface truncate" title={address}>
+                      {shortAddress(address, 6, 6)}{" "}
                       <span className="ml-2 text-secondary text-[10px] bg-secondary-container px-2 py-0.5 rounded-full">
                         {NETWORK_LABEL.toUpperCase()}
                       </span>
@@ -83,9 +108,7 @@ export default function SettingsPage() {
           </SettingsSection>
         </div>
 
-        {/* Right Column: Trading Preferences */}
         <div className="md:col-span-5 space-y-8">
-          {/* Slippage Section */}
           <section className="bg-primary-container text-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-all">
             <h2 className="font-headline-sm text-headline-sm flex items-center gap-2 mb-6">
               <span className="material-symbols-outlined">settings_input_component</span>
@@ -100,6 +123,7 @@ export default function SettingsPage() {
                   {SLIPPAGE_PRESET_BPS.map((bps) => (
                     <button
                       key={bps}
+                      type="button"
                       onClick={() => setSlippageBps(bps)}
                       className={`py-2 rounded font-data-mono text-data-mono transition-colors ${
                         settings.slippageBps === bps
@@ -134,7 +158,6 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          {/* Notifications Section */}
           <SettingsSection title="Notifications" icon="notifications_active">
             <div className="space-y-4">
               {notificationRows.map((row) => (
