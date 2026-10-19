@@ -64,7 +64,7 @@ export async function fetchTraceVersion(
   };
 }
 
-function extractSources(content: unknown): Array<{ name: string; weight: number; signal: string }> {
+export function extractSources(content: unknown): Array<{ name: string; weight: number; signal: string }> {
   if (!content || typeof content !== "object") return [];
 
   const obj = content as Record<string, unknown>;
@@ -97,7 +97,7 @@ function extractEstimate(content: unknown): number | null {
   return est !== null && est !== undefined ? Number(est) : null;
 }
 
-function matchSources(
+export function matchSources(
   before: Array<{ name: string; weight: number; signal: string }>,
   after: Array<{ name: string; weight: number; signal: string }>,
 ): SourceDiff {

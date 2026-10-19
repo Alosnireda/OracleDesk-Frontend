@@ -134,6 +134,13 @@ const ActivityTable = () => {
 };
 
 export default function PortfolioAnalytics() {
+  // Chart mounts only on the client so the prerender never measures a
+  // zero-size ResponsiveContainer (silences the width(-1) build warning).
+  const [chartMounted, setChartMounted] = React.useState(false);
+  React.useEffect(() => {
+    const frame = requestAnimationFrame(() => setChartMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
   return (
     <div className="min-h-screen bg-surface">
       <main className="pt-24 pb-12 px-gutter max-w-container-max-width mx-auto">
@@ -172,8 +179,9 @@ export default function PortfolioAnalytics() {
               </div>
             </div>
             <div className="h-[320px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data}>
+              {chartMounted ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={320}>
+                  <AreaChart data={data}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="100%">
                       <stop offset="5%" stopColor="#006c49" stopOpacity={0.1}/>
@@ -201,6 +209,9 @@ export default function PortfolioAnalytics() {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              ) : (
+                <div className="h-full w-full animate-pulse-soft rounded bg-surface-container" />
+              )}
               <div className="mt-4 flex justify-between text-on-surface-variant font-data-mono text-[11px]">
                 <span>08:00 AM</span>
                 <span>12:00 PM</span>

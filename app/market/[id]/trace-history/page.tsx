@@ -74,7 +74,7 @@ export default function MarketTraceHistoryPage() {
         </Link>
         <h1 className="font-display-lg text-display-lg text-on-surface">Market Trace History</h1>
         <p className="text-on-surface-variant mt-2 max-w-2xl font-body-lg text-body-lg">
-          Compare successive reasoning traces and see how an agent's estimates evolved.
+          Compare successive reasoning traces and see how an agent&apos;s estimates evolved.
         </p>
       </div>
 

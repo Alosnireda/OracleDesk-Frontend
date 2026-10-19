@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useWallet } from "@/lib/contexts/WalletContext";
 import { useMarkets } from "@/lib/hooks/useMarkets";
+import { useFeaturedMarket } from "@/lib/hooks/useFeaturedMarket";
+import { formatLiquidity, yesProb } from "@/lib/markets/featured";
+import { tickerItems } from "@/lib/markets/ticker";
 import { formatUsdc } from "@/lib/stellar/units";
 import { useBurstFeed } from "@/lib/realtime/useBurst";
 import { type RealtimeEvent, eventKey } from "@/lib/realtime/types";
@@ -95,21 +98,14 @@ const ProtocolActivity = () => {
 
 const Ticker = () => {
   const { data: marketsData } = useMarkets({ limit: 6 });
-  const markets = marketsData?.markets ?? [];
-  
-  const tickerItems = markets.length > 0 
-    ? markets.map(m => {
-        const prob = Math.round((m.currentYesProb ?? m.initialYesProb) * 100);
-        return `${m.question.substring(0, 30).toUpperCase()}: ${prob}%`;
-      })
-    : ["NO LIVE MARKETS YET"];
+  const tickerItemsList = tickerItems(marketsData?.markets ?? []);
 
   return (
     <div className="bg-on-background text-primary-fixed-dim py-2 border-b border-outline overflow-hidden">
       <div className="ticker-wrap w-full">
         <div className="ticker-content realtime-ticker animate-ticker motion-reduce:animate-none font-data-mono text-data-mono uppercase flex gap-8 whitespace-nowrap">
-          {[...tickerItems, ...tickerItems, ...tickerItems].map((item, i) => (
-            <span key={`${i}:${item}`} className={i >= tickerItems.length ? "motion-reduce:hidden" : ""}>{item} •</span>
+          {[...tickerItemsList, ...tickerItemsList, ...tickerItemsList].map((item, i) => (
+            <span key={`${i}:${item}`} className={i >= tickerItemsList.length ? "motion-reduce:hidden" : ""}>{item} •</span>
           ))}
         </div>
       </div>
@@ -118,15 +114,8 @@ const Ticker = () => {
 };
 
 const Hero = () => {
-  const { openModal } = useWallet();
-  const [yesProb, setYesProb] = useState(84.2);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setYesProb(70 + Math.random() * 20);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  const { market, isLoading } = useFeaturedMarket();
+  const prob = market ? Math.round(yesProb(market) * 1000) / 10 : null;
 
   return (
     <section className="relative overflow-hidden bg-surface py-20 border-b border-outline-variant">
@@ -177,44 +166,56 @@ const Hero = () => {
             transition={{ delay: 0.4 }}
             className="glass-panel p-6 rounded-xl shadow-sm border-outline-variant flex flex-col gap-6"
           >
-            <div className="flex justify-between items-center">
-              <span className="font-headline-sm text-headline-sm">Market Probability: US Fed Pivot</span>
-              <span className="font-data-mono text-primary bg-primary-fixed px-2 py-1 rounded text-[12px]">LIVE SIGNAL</span>
+            <div className="flex justify-between items-center gap-4">
+              <span className="font-headline-sm text-headline-sm">
+                {market ? market.question : isLoading ? "Loading live market…" : "No live markets yet"}
+              </span>
+              {market && <span className="font-data-mono text-primary bg-primary-fixed px-2 py-1 rounded text-[12px] whitespace-nowrap">LIVE SIGNAL</span>}
             </div>
-            <div className="space-y-4">
-              <div className="flex justify-between items-end">
-                <span className="font-label-caps text-on-surface-variant">AI REASONING CONFIDENCE</span>
-                <span className="font-data-mono text-secondary font-bold">{yesProb.toFixed(1)}% YES</span>
+            {market && prob !== null ? (
+              <>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-end">
+                    <span className="font-label-caps text-on-surface-variant">MARKET PROBABILITY</span>
+                    <span className="font-data-mono text-secondary font-bold">{prob.toFixed(1)}% YES</span>
+                  </div>
+                  <div className="h-10 w-full bg-surface-container rounded-full flex overflow-hidden border border-outline-variant">
+                    <motion.div 
+                      className="bg-secondary h-full"
+                      animate={{ width: `${prob}%` }}
+                      transition={{ duration: 1, ease: "easeInOut" }}
+                    />
+                    <motion.div 
+                      className="bg-tertiary h-full flex-1"
+                    />
+                  </div>
+                  <div className="flex justify-between text-label-caps font-bold">
+                    <span className="text-secondary">YES ${(prob/100).toFixed(2)}</span>
+                    <span className="text-tertiary">NO ${(1 - prob/100).toFixed(2)}</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
+                    <div className="text-label-caps text-on-surface-variant mb-1">LIQUIDITY</div>
+                    <div className="font-headline-sm text-on-surface">{formatLiquidity(market.totalLiquidity)}</div>
+                  </div>
+                  <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
+                    <div className="text-label-caps text-on-surface-variant mb-1">ON-CHAIN</div>
+                    <div className="font-headline-sm text-on-surface">{market.onChainMarketId !== null ? `#${market.onChainMarketId}` : "PENDING"}</div>
+                  </div>
+                </div>
+                <Link
+                  href={`/markets/quick-view?marketId=${market.id}`}
+                  className="w-full border border-primary text-primary py-3 rounded font-label-caps text-label-caps tracking-widest hover:bg-primary/5 transition-colors text-center"
+                >
+                  VIEW LIVE MARKET
+                </Link>
+              </>
+            ) : (
+              <div className="h-40 flex items-center justify-center text-on-surface-variant font-body-md">
+                {isLoading ? "Fetching the latest on-chain market…" : "No live markets found — check back soon."}
               </div>
-              <div className="h-10 w-full bg-surface-container rounded-full flex overflow-hidden border border-outline-variant">
-                <motion.div 
-                  className="bg-secondary h-full"
-                  animate={{ width: `${yesProb}%` }}
-                  transition={{ duration: 1, ease: "easeInOut" }}
-                />
-                <motion.div 
-                  className="bg-tertiary h-full flex-1"
-                />
-              </div>
-              <div className="flex justify-between text-label-caps font-bold">
-                <span className="text-secondary">YES ${(yesProb/100).toFixed(2)}</span>
-                <span className="text-tertiary">NO ${(1 - yesProb/100).toFixed(2)}</span>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
-                <div className="text-label-caps text-on-surface-variant mb-1">24H VOLUME</div>
-                <div className="font-headline-sm text-on-surface">$12.4M</div>
-              </div>
-              <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
-                <div className="text-label-caps text-on-surface-variant mb-1">LIQUIDITY DEPTH</div>
-                <div className="font-headline-sm text-on-surface">$4.1M</div>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-3 bg-surface-container-highest rounded border-l-4 border-primary">
-              <span className="material-symbols-outlined text-primary">auto_awesome</span>
-              <p className="text-body-md italic text-on-surface-variant">&quot;Oracle Insight: Recent FOMC minutes suggest a dovish shift in sentiment, increasing the probability of a March cut.&quot;</p>
-            </div>
+            )}
           </motion.div>
           <div className="absolute -top-10 -right-10 -z-10 w-64 h-64 bg-primary-fixed-dim/20 rounded-full blur-3xl"></div>
           <div className="absolute -bottom-10 -left-10 -z-10 w-64 h-64 bg-secondary-fixed/20 rounded-full blur-3xl"></div>
@@ -360,7 +361,7 @@ const ReasoningSection = () => {
               <p>&gt; CROSS-REFERENCING HISTORICAL FOMC SENTIMENT</p>
               <p>&gt; CORRELATION DETECTED: 0.89 WITH 2019 PIVOT</p>
               <p>&gt; CALCULATING CONFIDENCE INTERVALS...</p>
-              <p>&gt; TRACE ANCHORED ON ETHEREUM MAINNET</p>
+              <p>&gt; TRACE ANCHORED ON STELLAR TESTNET</p>
               <p className="text-secondary animate-pulse motion-reduce:animate-none">&gt; VERDICT: DOVISH SHIFT CONFIRMED</p>
             </div>
           </div>
@@ -408,64 +409,35 @@ const PortfolioAnalytics = () => {
         <p className="text-on-surface-variant max-w-2xl mx-auto">Track your prediction edge across multiple markets with terminal-grade analytics.</p>
       </div>
       <div className="grid grid-cols-12 gap-8">
-        <div className="col-span-12 lg:col-span-8 bg-white border border-outline-variant rounded-xl p-8 shadow-sm">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-            <div>
-              <span className="font-label-caps text-on-surface-variant">EQUITY CURVE</span>
-              <div className="font-headline-md text-secondary">+$14,204.12 (24.1%)</div>
+        <div className="col-span-12 lg:col-span-7 bg-white border border-outline-variant p-6 rounded-xl shadow-sm">
+          <h4 className="font-label-caps mb-4 text-on-surface-variant flex items-center gap-2">TOP POSITIONS <DemoBadge /></h4>
+          <div className="space-y-4">
+            <div className="flex justify-between">
+              <span className="font-body-md font-semibold">FED PIVOT MAY</span>
+              <span className="text-secondary font-bold">+$4.2k</span>
             </div>
-            <div className="flex gap-2 items-center">
-              <button className="px-3 py-1 bg-surface-container rounded font-label-caps text-[10px]">1D</button>
-              <button className="px-3 py-1 bg-primary text-primary-foreground rounded font-label-caps text-[10px]">1W</button>
-              <button className="px-3 py-1 bg-surface-container rounded font-label-caps text-[10px]">1M</button>
-              <button className="px-3 py-1 bg-surface-container rounded font-label-caps text-[10px]">ALL</button>
-              <a href="/portfolio" className="ml-4 px-3 py-1 border border-primary text-primary rounded font-label-caps text-[10px] hover:bg-primary/5 transition-colors">VIEW FULL</a>
+            <div className="flex justify-between">
+              <span className="font-body-md font-semibold">ETH SPOT APPROVAL</span>
+              <span className="text-secondary font-bold">+$1.8k</span>
             </div>
-          </div>
-          <div className="h-64 flex items-end gap-2">
-            <div className="flex-1 bg-surface-container h-[25%] rounded-t"></div>
-            <div className="flex-1 bg-surface-container h-[33%] rounded-t"></div>
-            <div className="flex-1 bg-surface-container h-[50%] rounded-t"></div>
-            <div className="flex-1 bg-surface-container h-[40%] rounded-t"></div>
-            <div className="flex-1 bg-primary h-[75%] rounded-t"></div>
-            <div className="flex-1 bg-primary h-[66%] rounded-t"></div>
-            <div className="flex-1 bg-primary h-[83%] rounded-t"></div>
-            <div className="flex-1 bg-primary h-full rounded-t"></div>
-            <div className="flex-1 bg-secondary h-[80%] rounded-t"></div>
-            <div className="flex-1 bg-secondary h-full rounded-t"></div>
+            <div className="flex justify-between">
+              <span className="font-body-md font-semibold">UK ELECTION</span>
+              <span className="text-tertiary font-bold">-$0.5k</span>
+            </div>
           </div>
         </div>
-        <div className="col-span-12 lg:col-span-4 flex flex-col gap-6">
-          <div className="bg-white border border-outline-variant p-6 rounded-xl shadow-sm">
-            <h4 className="font-label-caps mb-4 text-on-surface-variant flex items-center gap-2">TOP POSITIONS <DemoBadge /></h4>
-            <div className="space-y-4">
-              <div className="flex justify-between">
-                <span className="font-body-md font-semibold">FED PIVOT MAY</span>
-                <span className="text-secondary font-bold">+$4.2k</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-body-md font-semibold">ETH SPOT APPROVAL</span>
-                <span className="text-secondary font-bold">+$1.8k</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-body-md font-semibold">UK ELECTION</span>
-                <span className="text-tertiary font-bold">-$0.5k</span>
-              </div>
-            </div>
+        <div className="col-span-12 lg:col-span-5 bg-primary-container text-on-primary-container p-6 rounded-xl shadow-sm flex flex-col justify-between h-full">
+          <div>
+            <span className="material-symbols-outlined text-[32px] mb-2">workspace_premium</span>
+            <h4 className="font-headline-sm mb-2">Oracle Premium</h4>
+            <p className="text-body-md text-on-primary-container/80 mb-4">Unlock advanced trace depth and lower trade fees with the Premium pass.</p>
           </div>
-          <div className="bg-primary-container text-on-primary-container p-6 rounded-xl shadow-sm flex flex-col justify-between h-full">
-            <div>
-              <span className="material-symbols-outlined text-[32px] mb-2">workspace_premium</span>
-              <h4 className="font-headline-sm mb-2">Oracle Premium</h4>
-              <p className="text-body-md text-on-primary-container/80 mb-4">Unlock advanced trace depth and lower trade fees with the Premium pass.</p>
-            </div>
-            <Link 
-              href="/premium" 
-              className="w-full bg-primary-fixed text-on-primary-fixed py-3 rounded font-bold font-label-caps text-[12px] tracking-widest text-center hover:brightness-110 transition-all"
-            >
-              UPGRADE NOW
-            </Link>
-          </div>
+          <Link 
+            href="/premium" 
+            className="w-full bg-primary-fixed text-on-primary-fixed py-3 rounded font-bold font-label-caps text-[12px] tracking-widest text-center hover:brightness-110 transition-all"
+          >
+            UPGRADE NOW
+          </Link>
         </div>
       </div>
     </section>
@@ -478,7 +450,7 @@ const CTA = () => {
     <section className="py-20 bg-on-background text-surface">
       <div className="max-w-container-max-width mx-auto px-gutter text-center">
         <h2 className="font-display-lg text-display-lg mb-8">Ready to predict the future?</h2>
-        <p className="text-surface-variant max-w-xl mx-auto mb-10 text-body-lg">Join 10,000+ institutional analysts and traders leveraging OracleDesk for superior market edges.</p>
+        <p className="text-surface-variant max-w-xl mx-auto mb-10 text-body-lg">Trade live prediction markets with USDC on Stellar Testnet, every forecast backed by a verifiable on-chain reasoning trace.</p>
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           <button 
             className="border border-outline-variant text-primary-foreground px-10 py-5 rounded-lg font-bold font-label-caps tracking-widest hover:bg-white/10 hover:scale-105 transition-transform"
