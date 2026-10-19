@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
@@ -55,7 +56,7 @@ const TerminalLog = () => {
           <div className="w-3 h-3 rounded-full bg-primary-fixed"></div>
           <span className="font-data-mono text-[11px] text-surface-variant ml-4 uppercase tracking-widest">Transaction & Performance Log</span>
         </div>
-        <span className="material-symbols-outlined text-surface-variant text-[18px]">terminal</span>
+        <Icon name="terminal" className="text-surface-variant text-[18px]" />
       </div>
       <div 
         ref={terminalRef}
@@ -223,9 +224,10 @@ export default function PortfolioPage() {
             </div>
             <div className="text-[10px] font-bold text-on-surface-variant mt-1">Backend record of the agent&apos;s holdings</div>
             <div className={`text-[12px] font-bold ${(summary?.dailyPnl ?? 0) >= 0 ? 'text-secondary' : 'text-tertiary'} flex items-center gap-1 mt-1`}>
-              <span className="material-symbols-outlined text-[14px]">
-                {(summary?.dailyPnl ?? 0) >= 0 ? 'arrow_upward' : 'arrow_downward'}
-              </span> 
+              <Icon
+                name={(summary?.dailyPnl ?? 0) >= 0 ? 'arrow_upward' : 'arrow_downward'}
+                className="text-[14px]"
+              /> 
               {isSummaryLoading ? "0.0%" : `${Math.abs(summary?.dailyPnl ?? 0).toFixed(2)}%`}
             </div>
           </div>
@@ -330,7 +332,7 @@ export default function PortfolioPage() {
       <section className="mb-12 bg-primary-container/10 border border-primary/20 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-on-primary">
-            <span className="material-symbols-outlined">account_balance_wallet</span>
+            <Icon name="account_balance_wallet" />
           </div>
           <div>
             <h3 className="font-headline-sm text-headline-sm">Agent Treasury</h3>
@@ -557,7 +559,7 @@ export default function PortfolioPage() {
         <aside className="flex flex-col gap-6">
           <div className="bg-surface-container-low border border-outline-variant rounded p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+              <Icon name="psychology" filled className="text-primary" />
               <h3 className="font-headline-sm text-headline-sm">Oracle Insight</h3>
             </div>
             <p className="font-body-md text-body-md text-on-surface-variant mb-4 leading-relaxed">

@@ -32,12 +32,6 @@
 }
 
 @layer base {
-  .theme {
-    --font-heading: var(--font-geist-sans);
-    --font-sans: var(--font-inter);
-    --font-geist-sans: var(--font-geist-sans);
-    --font-inter: var(--font-inter);
-  }
   :root {
     --background: #f8f9ff;
     --foreground: #0b1c30;

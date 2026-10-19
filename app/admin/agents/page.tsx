@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
@@ -149,7 +150,7 @@ function AdminAgentsContent() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-on-surface-variant">
             <Link href="/admin" className="hover:text-primary">Admin</Link>
-            <span className="material-symbols-outlined text-sm">chevron_right</span>
+            <Icon name="chevron_right" className="text-sm" />
             <span>Agents</span>
           </div>
           <h1 className="font-display-lg text-display-lg text-primary text-4xl">Reasoning agents</h1>

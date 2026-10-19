@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -73,7 +74,7 @@ function ReceiptRow({ event }: { event: PaymentEvent }) {
           className="font-data-mono text-[11px] text-primary hover:underline shrink-0"
           title={event.txHash}
         >
-          {event.txHash.slice(0, 10)}… <span className="material-symbols-outlined align-middle text-[12px]">open_in_new</span>
+          {event.txHash.slice(0, 10)}… <Icon name="open_in_new" className="align-middle text-[12px]" />
         </a>
       ) : (
         <span className="font-data-mono text-[11px] text-on-surface-variant">no tx hash</span>
@@ -196,7 +197,7 @@ function UnlockPremiumTraceContent() {
   if (!traceId) {
     return (
       <main className="min-h-[calc(100vh-64px)] px-gutter max-w-container-max-width mx-auto py-16 text-center">
-        <span className="material-symbols-outlined text-outline-variant text-6xl mb-4">lock</span>
+        <Icon name="lock" className="text-outline-variant text-6xl mb-4" />
         <h1 className="font-headline-md text-headline-md text-on-surface mb-2">Premium Trace Access</h1>
         <p className="text-body-md text-on-surface-variant mb-6">
           Open this page from a reasoning trace to see its access state, prices and payment receipts.
@@ -219,7 +220,7 @@ function UnlockPremiumTraceContent() {
   if (traceQuery.isError || !trace) {
     return (
       <main className="min-h-[calc(100vh-64px)] px-gutter max-w-container-max-width mx-auto py-16 text-center">
-        <span className="material-symbols-outlined text-error text-6xl mb-4">error</span>
+        <Icon name="error" className="text-error text-6xl mb-4" />
         <h1 className="font-headline-md text-headline-md text-on-surface mb-2">Trace not found</h1>
         <p className="text-body-md text-on-surface-variant mb-6">
           {traceQuery.error instanceof Error ? traceQuery.error.message : "We couldn't load this reasoning trace."}

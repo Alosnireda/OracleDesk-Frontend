@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -121,9 +122,7 @@ export default function ReasoningTraceDetailPage() {
                 <div className="absolute -left-[22px] top-2 w-3 h-3 rounded-full bg-primary border-2 border-white z-10"></div>
                 <div className="bg-[#f0f9fa] p-4 rounded-lg border border-primary-container/30">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="material-symbols-outlined text-primary text-sm">
-                      psychology
-                    </span>
+                    <Icon name="psychology" className="text-primary text-sm" />
                     <span className="font-label-caps text-label-caps text-primary uppercase">
                       Step 03: Oracle Insight (Sentiment Analysis)
                     </span>
@@ -176,9 +175,7 @@ export default function ReasoningTraceDetailPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded bg-white border border-outline-variant flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">
-                    terminal
-                  </span>
+                  <Icon name="terminal" className="text-on-surface-variant" />
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between mb-1">
@@ -192,9 +189,7 @@ export default function ReasoningTraceDetailPage() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded bg-white border border-outline-variant flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">
-                    public
-                  </span>
+                  <Icon name="public" className="text-on-surface-variant" />
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between mb-1">
@@ -208,9 +203,7 @@ export default function ReasoningTraceDetailPage() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded bg-white border border-outline-variant flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">
-                    history_edu
-                  </span>
+                  <Icon name="history_edu" className="text-on-surface-variant" />
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between mb-1">
@@ -269,9 +262,7 @@ export default function ReasoningTraceDetailPage() {
               href="/copy-trade?traceId=TRD-7724&marketId=MKT-9204"
               className="w-full bg-secondary text-primary-foreground font-headline-sm text-headline-sm py-4 rounded-xl flex items-center justify-center gap-3 hover:opacity-90 transition-opacity active:scale-[0.98] transform cursor-pointer"
             >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                bolt
-              </span>
+              <Icon name="bolt" filled />
               Copy Trade (YES)
             </Link>
             <p className="font-label-caps text-[10px] text-center text-on-surface-variant">

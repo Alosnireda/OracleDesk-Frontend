@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React from "react";
 import Link from "next/link";
@@ -58,7 +59,7 @@ const Navbar = () => {
                       aria-haspopup="menu"
                     >
                       {link.name}
-                      <span className="material-symbols-outlined text-[18px]">expand_more</span>
+                      <Icon name="expand_more" className="text-[18px]" />
                     </button>
                     <div
                       role="menu"
@@ -98,16 +99,11 @@ const Navbar = () => {
         </div>
         <div className="flex items-center gap-4">
           <HealthIndicator />
-          <Link 
-            href="/notifications"
-            aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"}
-            className={`material-symbols-outlined ${
+          <Link aria-label={unread ? `Notifications, ${unread} unread` : "Notifications"} className={`${
               pathname === "/notifications" ? "text-primary" : "text-on-surface-variant"
-            } hover:text-primary transition-colors cursor-pointer relative pt-1`}
-          >
-            notifications
-            {unread > 0 && <span aria-hidden="true" className="absolute -top-1 -right-2 min-w-4 h-4 text-[10px] font-sans leading-4 text-center bg-tertiary text-white rounded-full">{unread > 99 ? "99+" : unread}</span>}
-          </Link>
+            } hover:text-primary transition-colors cursor-pointer relative pt-1`} href="/notifications">
+  <Icon name="notifications" />{unread > 0 && <span aria-hidden="true" className="absolute -top-1 -right-2 min-w-4 h-4 text-[10px] font-sans leading-4 text-center bg-tertiary text-white rounded-full">{unread > 99 ? "99+" : unread}</span>}
+</Link>
           
           <WalletDropdown />
 

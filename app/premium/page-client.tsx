@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import { TxReview, TxReviewPreferenceControl, shouldSkipTxReview } from "@/components/tx-review";
 import type { ReviewModel } from "@/lib/stellar/tx-decode";
@@ -360,9 +361,10 @@ export default function PremiumPageClient() {
                       !feature.included ? "opacity-40" : ""
                     }`}
                   >
-                    <span className="material-symbols-outlined text-primary text-lg">
-                      {feature.included ? "check_circle" : "cancel"}
-                    </span>
+                    <Icon
+                      name={feature.included ? "check_circle" : "cancel"}
+                      className="text-primary text-lg"
+                    />
                     {feature.text}
                   </li>
                 ))}
@@ -458,13 +460,9 @@ export default function PremiumPageClient() {
             >
               <div className="p-6 md:p-8 border-b border-outline-variant flex justify-between items-center">
                 <h2 className="font-headline-md text-headline-md">Confirm Subscription</h2>
-                <button
-                  className="material-symbols-outlined text-on-surface-variant hover:text-error transition-colors cursor-pointer"
-                  aria-label="Close"
-                  onClick={() => setSelectedTier(null)}
-                >
-                  close
-                </button>
+                <button aria-label="Close" className="text-on-surface-variant hover:text-error transition-colors cursor-pointer" onClick={() => setSelectedTier(null)}>
+  <Icon name="close" />
+</button>
               </div>
               <div className="p-6 md:p-8">
                 <div className="bg-surface-container-low p-4 rounded-xl mb-8 flex justify-between items-center border border-outline-variant">
@@ -501,9 +499,7 @@ export default function PremiumPageClient() {
                       <p className="text-xs text-on-surface-variant">From your wallet on Stellar Testnet</p>
                     </div>
                     {paymentMethod === 'usdc' && (
-                      <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
-                        check_circle
-                      </span>
+                      <Icon name="check_circle" filled className="text-primary" />
                     )}
                   </label>
 

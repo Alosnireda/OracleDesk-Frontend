@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -103,11 +104,9 @@ const WalletDropdownBody = () => {
           </span>
         </div>
         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-          <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+          <Icon name="account_balance_wallet" className="text-[20px]" />
         </div>
-        <span className={`material-symbols-outlined text-on-surface-variant transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
-          expand_more
-        </span>
+        <Icon name="expand_more" className={`text-on-surface-variant transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown Menu */}
@@ -185,9 +184,10 @@ const WalletDropdownBody = () => {
                 onClick={copyAddress}
                 className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-surface-container rounded-lg transition-colors group"
               >
-                <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary">
-                  {copied ? "check" : "content_copy"}
-                </span>
+                <Icon
+                  name={copied ? "check" : "content_copy"}
+                  className="text-on-surface-variant group-hover:text-primary"
+                />
                 <div className="text-left">
                   <span className="block text-sm font-bold text-on-surface">{copied ? "Copied" : "Copy address"}</span>
                   <span className="block text-[10px] text-on-surface-variant font-data-mono">{truncatedAddress}</span>
@@ -201,9 +201,7 @@ const WalletDropdownBody = () => {
                 onClick={() => setIsOpen(false)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-surface-container rounded-lg transition-colors group"
               >
-                <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary">
-                  open_in_new
-                </span>
+                <Icon name="open_in_new" className="text-on-surface-variant group-hover:text-primary" />
                 <div className="text-left">
                   <span className="block text-sm font-bold text-on-surface">View on Stellar Expert</span>
                   <span className="block text-[10px] text-on-surface-variant uppercase">Account history</span>
@@ -219,9 +217,7 @@ const WalletDropdownBody = () => {
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-error-container text-on-surface hover:text-on-error-container rounded-lg transition-colors group"
               >
-                <span className="material-symbols-outlined text-on-surface-variant group-hover:text-error">
-                  logout
-                </span>
+                <Icon name="logout" className="text-on-surface-variant group-hover:text-error" />
                 <div className="text-left">
                   <span className="block text-sm font-bold">Disconnect</span>
                   <span className="block text-[10px] opacity-70 uppercase">Log out of session</span>

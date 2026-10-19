@@ -1,4 +1,5 @@
 "use client";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
@@ -87,7 +88,7 @@ export default function MarketTerminal() {
           </div>
           <div className="absolute -bottom-4 -left-0 md:-left-8 bg-white/80 backdrop-blur-md p-4 rounded shadow-xl border border-outline-variant flex items-center gap-3">
             <div className="w-10 h-10 bg-secondary rounded-full flex items-center justify-center text-white">
-              <span className="material-symbols-outlined">trending_up</span>
+              <Icon name="trending_up" />
             </div>
             <div>
               <p className="font-label-caps text-label-caps text-on-surface-variant text-[10px]">MARKET ACCURACY</p>
@@ -103,7 +104,7 @@ export default function MarketTerminal() {
         <div className="md:col-span-2 lg:col-span-2 bg-gradient-to-br from-white to-[#f0f9fa] border border-outline-variant p-6 rounded-lg flex flex-col gap-4 shadow-sm">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">psychology</span>
+              <Icon name="psychology" className="text-primary" />
               <span className="font-headline-sm text-headline-sm text-primary">Oracle Insights</span>
             </div>
             <span className="font-label-caps text-label-caps px-2 py-1 bg-primary text-on-primary rounded text-[10px] font-bold">LIVE</span>
@@ -163,8 +164,8 @@ export default function MarketTerminal() {
         <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
           <h2 className="font-headline-sm text-headline-sm">Trending Prediction Markets</h2>
           <div className="flex gap-4">
-            <span className="material-symbols-outlined cursor-pointer hover:text-primary transition-colors">filter_list</span>
-            <span className="material-symbols-outlined cursor-pointer hover:text-primary transition-colors">search</span>
+            <Icon name="filter_list" className="cursor-pointer hover:text-primary transition-colors" />
+            <Icon name="search" className="cursor-pointer hover:text-primary transition-colors" />
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -187,7 +188,7 @@ export default function MarketTerminal() {
                 <tr key={i} className="hover:bg-surface-container/50 transition-colors group">
                   <td className="px-6 py-4 flex items-center gap-3">
                     <div className="w-8 h-8 rounded bg-surface-container-high flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                      <span className="material-symbols-outlined text-primary text-sm">{m.icon}</span>
+                      <Icon name={m.icon as IconName} className="text-primary text-sm" />
                     </div>
                     <span className="font-semibold text-on-surface">{m.name}</span>
                   </td>
@@ -255,13 +256,13 @@ export default function MarketTerminal() {
           <ul className="space-y-6 pt-4">
             <li className="flex items-start gap-3">
               <div className="bg-secondary/10 p-1 rounded">
-                <span className="material-symbols-outlined text-secondary text-[20px]">check_circle</span>
+                <Icon name="check_circle" className="text-secondary text-[20px]" />
               </div>
               <span><strong className="font-headline-sm text-headline-sm block mb-1">4px Baseline Grid</strong> Tight spacing for high information density without visual clutter.</span>
             </li>
             <li className="flex items-start gap-3">
               <div className="bg-secondary/10 p-1 rounded">
-                <span className="material-symbols-outlined text-secondary text-[20px]">check_circle</span>
+                <Icon name="check_circle" className="text-secondary text-[20px]" />
               </div>
               <span><strong className="font-headline-sm text-headline-sm block mb-1">Geist Variable Typeface</strong> Engineered for maximum legibility in numerical datasets.</span>
             </li>

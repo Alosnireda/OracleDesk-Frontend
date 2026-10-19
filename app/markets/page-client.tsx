@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -45,7 +46,7 @@ const FilterBar = ({
       <div className="flex flex-col lg:flex-row gap-4 justify-between items-center">
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           <div className="relative flex-grow min-w-[240px]">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
             <input 
               className="w-full pl-10 pr-4 py-2 bg-surface border border-outline-variant rounded-lg text-body-md focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" 
               placeholder="Search markets, assets, or events..." 
@@ -127,9 +128,11 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
             </span>
             <span className="bg-surface-container-highest text-on-surface-variant px-2 py-1 rounded text-label-caps font-bold uppercase tracking-wider">{category}</span>
             <div className={`flex items-center gap-1 px-2 py-1 rounded ${aiSignal === 'NEUTRAL' || aiSignal === 'ANALYZING' ? 'bg-surface-container-highest' : aiSignal === 'BEARISH' ? 'bg-tertiary-fixed/30' : 'bg-secondary-fixed/30'}`}>
-              <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                {aiSignal === 'ANALYZING' ? 'sync' : aiSignal === 'NEUTRAL' ? 'psychology' : aiSignal === 'BULLISH' ? 'trending_up' : 'trending_down'}
-              </span>
+              <Icon
+                name={aiSignal === 'ANALYZING' ? 'sync' : aiSignal === 'NEUTRAL' ? 'psychology' : aiSignal === 'BULLISH' ? 'trending_up' : 'trending_down'}
+                filled
+                className="text-[14px]"
+              />
               <span className={`${aiSignal === 'NEUTRAL' || aiSignal === 'ANALYZING' ? 'text-on-surface-variant' : aiSignal === 'BEARISH' ? 'text-tertiary' : 'text-secondary'} text-label-caps font-bold uppercase`}>
                 AI {aiSignal}: {aiStatus}
               </span>
@@ -217,7 +220,7 @@ const TradingFeed = () => {
   return (
     <section className="mt-12">
       <div className="flex items-center gap-2 mb-4">
-        <span className="material-symbols-outlined text-primary">analytics</span>
+        <Icon name="analytics" className="text-primary" />
         <h2 className="font-headline-sm text-headline-sm uppercase tracking-tight">Real-time Trading Feed</h2>
       </div>
       {burst && <p className="text-xs text-on-surface-variant mb-2">{burst.count} trades in the last second{burst.overflow ? ` · ${burst.overflow} more events while this tab was hidden` : ""}.</p>}
@@ -251,7 +254,7 @@ function OnChainOnlyMarkets({ knownIds }: { knownIds: Set<string> }) {
   return (
     <section className="mt-12">
       <div className="flex items-center gap-2 mb-2">
-        <span className="material-symbols-outlined text-primary">link</span>
+        <Icon name="link" className="text-primary" />
         <h2 className="font-headline-sm text-headline-sm uppercase tracking-tight">On-chain markets without OracleDesk metadata</h2>
       </div>
       <p className="text-on-surface-variant text-sm mb-4">
@@ -302,7 +305,7 @@ export default function MarketsPageClient() {
           </div>
         ) : error ? (
           <div className="text-center py-12 bg-surface-container-low rounded-xl border border-error/20">
-            <span className="material-symbols-outlined text-error text-4xl mb-4">error</span>
+            <Icon name="error" className="text-error text-4xl mb-4" />
             <p className="text-on-surface-variant font-medium">Failed to load markets.</p>
             <p className="text-on-surface-variant/70 text-sm mt-2">
               {error instanceof Error ? error.message : "Please check if the backend is running and accessible."}

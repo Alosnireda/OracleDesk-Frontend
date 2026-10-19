@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { Suspense, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -87,7 +88,7 @@ function MarketQuickViewContent() {
   if (notFound) {
     return (
       <main className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-surface flex flex-col items-center justify-center p-6 text-center">
-        <span className="material-symbols-outlined text-error text-6xl mb-4">error</span>
+        <Icon name="error" className="text-error text-6xl mb-4" />
         <h2 className="text-headline-md mb-2">Market not found</h2>
         <p className="text-on-surface-variant mb-6">The market you are looking for does not exist or could not be loaded.</p>
         <Link href="/markets" className="bg-primary text-white px-6 py-2 rounded-lg font-label-caps uppercase">
@@ -157,7 +158,7 @@ function MarketQuickViewContent() {
                   aria-label="Close"
                   className="text-outline hover:text-on-surface transition-colors min-h-11 min-w-11 flex items-center justify-center"
                 >
-                  <span className="material-symbols-outlined">close</span>
+                  <Icon name="close" />
                 </Link>
               </div>
 
@@ -240,7 +241,7 @@ function MarketQuickViewContent() {
                 {/* AI Reasoning Snippet */}
                 <div className="bg-[#f0f9fa] border border-primary-container/20 p-4 rounded-lg space-y-2 relative overflow-hidden">
                   <div className="flex items-center gap-2 text-primary z-10 relative">
-                    <span className="material-symbols-outlined text-[18px]">psychology</span>
+                    <Icon name="psychology" className="text-[18px]" />
                     <span className="font-label-caps text-label-caps uppercase font-bold tracking-wider">Oracle AI Insights</span>
                   </div>
                   <p className="font-body-md text-body-md text-on-surface-variant italic z-10 relative leading-relaxed">
@@ -250,7 +251,7 @@ function MarketQuickViewContent() {
                     }
                   </p>
                   <div className="absolute right-0 bottom-0 opacity-5 translate-x-4 translate-y-4">
-                    <span className="material-symbols-outlined text-6xl">neurology</span>
+                    <Icon name="neurology" className="text-6xl" />
                   </div>
                 </div>
               </div>

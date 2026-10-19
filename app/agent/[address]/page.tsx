@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
@@ -61,7 +62,7 @@ export default function AgentProfilePage() {
           href="/reasoning"
           className="flex items-center gap-2 text-primary hover:underline mb-4 font-label-caps text-label-caps"
         >
-          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <Icon name="arrow_back" className="text-base" />
           Back to Reasoning Feed
         </Link>
       </div>
@@ -77,9 +78,7 @@ export default function AgentProfilePage() {
         </div>
       ) : error && profile.traces.length === 0 ? (
         <div className="p-12 text-center bg-surface-container-low rounded-xl border border-outline-variant">
-          <span className="material-symbols-outlined text-error text-4xl mb-4 block">
-            info
-          </span>
+          <Icon name="info" className="text-error text-4xl mb-4 block" />
           <p className="text-on-surface-variant">{error}</p>
         </div>
       ) : (

@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import { TxReview, TxReviewPreferenceControl, shouldSkipTxReview } from "@/components/tx-review";
 import type { ReviewModel } from "@/lib/stellar/tx-decode";
@@ -409,20 +410,15 @@ function CopyTradeContent() {
               <h2 className="font-headline-md text-headline-md text-on-surface">Confirm Copy Trade</h2>
               <p className="font-body-md text-body-md text-on-surface-variant text-sm">Copy the agent&apos;s side on this market</p>
             </div>
-            <button 
-              className="material-symbols-outlined p-2 hover:bg-surface-container rounded-full transition-colors" 
-              type="button"
-              aria-label="Close"
-              onClick={() => router.back()}
-            >
-              close
-            </button>
+            <button aria-label="Close" className="p-2 hover:bg-surface-container rounded-full transition-colors" type="button" onClick={() => router.back()}>
+  <Icon name="close" />
+</button>
           </div>
 
           <div className="bg-[#f0f9fa] border-b border-outline-variant p-6 relative overflow-hidden ai-shimmer text-xs sm:text-sm">
             <div className="flex items-start gap-4">
               <div className="bg-primary-container p-2 rounded-lg flex-shrink-0">
-                <span className="material-symbols-outlined text-on-primary-container" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+                <Icon name="psychology" filled className="text-on-primary-container" />
               </div>
               <div>
                 <span className="font-label-caps text-label-caps text-primary-container mb-1 block">
@@ -576,7 +572,7 @@ function CopyTradeContent() {
             <div className="p-4 bg-surface-container-low rounded-lg space-y-4">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-outline text-sm">settings</span>
+                  <Icon name="settings" className="text-outline text-sm" />
                   <span className="font-label-caps text-label-caps text-on-surface-variant uppercase text-[10px]">
                     Slippage Tolerance ({bpsToPercent(slippageBps)})
                   </span>
@@ -604,7 +600,7 @@ function CopyTradeContent() {
               )}
               <div className="pt-4 border-t border-outline-variant flex justify-between items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-outline text-sm">query_stats</span>
+                  <Icon name="query_stats" className="text-outline text-sm" />
                   <span className="font-label-caps text-label-caps text-on-surface-variant uppercase text-[10px]">Expected shares</span>
                 </div>
                 <div className="text-right font-data-mono text-xs">
@@ -744,7 +740,7 @@ function CopyTradeContent() {
                     (isConnected && isInsufficientXlm)
                   }
                 >
-                  <span className="material-symbols-outlined text-xl">bolt</span>
+                  <Icon name="bolt" className="text-xl" />
                   {isSubmitting || buy.isPending
                     ? (buy.phase.name === "awaiting-signature" ? "Signing…" : "Submitting…")
                     : isUnfunded

@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useEffect, useMemo, useRef } from "react";
 import { motion } from "framer-motion";
@@ -24,9 +25,11 @@ const ReasoningCard = ({ trace }: ReasoningCardProps) => {
           <div className="flex items-center gap-3 mb-2">
             <span className="bg-surface-container-high px-2 py-0.5 rounded font-label-caps text-[10px] text-primary">ID: {id.substring(0, 8).toUpperCase()}</span>
             <div className={`flex items-center gap-1 ${verified ? 'text-secondary' : 'text-on-surface-variant'} font-bold`}>
-              <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: verified ? "'FILL' 1" : "" }}>
-                {verified ? 'verified' : 'pending'}
-              </span>
+              <Icon
+                name={verified ? "verified" : "pending"}
+                filled={verified}
+                className="text-[16px]"
+              />
               <span className="font-label-caps text-label-caps">{verified ? 'Verified' : 'Pending'}</span>
             </div>
           </div>
@@ -54,7 +57,7 @@ const ReasoningCard = ({ trace }: ReasoningCardProps) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
               <h3 className="font-label-caps text-label-caps text-on-surface-variant uppercase mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined">analytics</span> Reasoning Preview
+                <Icon name="analytics" /> Reasoning Preview
               </h3>
               <div className="space-y-3 font-body-md text-on-surface leading-relaxed">
                 <p>{synthesis}</p>
@@ -62,7 +65,7 @@ const ReasoningCard = ({ trace }: ReasoningCardProps) => {
             </div>
             <div>
               <h3 className="font-label-caps text-label-caps text-on-surface-variant uppercase mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined">balance</span> Source Weighting
+                <Icon name="balance" /> Source Weighting
               </h3>
               <div className="space-y-2">
                 {sources.map((source, i) => (
@@ -81,7 +84,7 @@ const ReasoningCard = ({ trace }: ReasoningCardProps) => {
           </div>
         ) : (
           <div className="flex items-center gap-3 text-on-surface-variant font-body-md">
-            <span className="material-symbols-outlined">lock</span>
+            <Icon name="lock" />
             <p>No public preview for this trace — unlock the full reasoning via Premium or the per-trace flow.</p>
           </div>
         )}
@@ -115,7 +118,7 @@ const ReasoningCard = ({ trace }: ReasoningCardProps) => {
           </Link>
         </div>
         <Link href={`/premium/trace?traceId=${id}`} className="flex items-center gap-2 text-primary font-bold font-label-caps text-label-caps border border-primary px-4 py-2 rounded hover:bg-primary-fixed-dim/10">
-          <span className="material-symbols-outlined">lock_open</span>
+          <Icon name="lock_open" />
           Unlock Premium Trace
         </Link>
       </div>
@@ -175,7 +178,7 @@ export default function ReasoningFeedPage() {
           ))
         ) : error ? (
           <div className="p-12 text-center bg-surface-container-low rounded-xl border border-error/20">
-            <span className="material-symbols-outlined text-error text-4xl mb-4">error</span>
+            <Icon name="error" className="text-error text-4xl mb-4" />
             <p>Failed to load reasoning traces.</p>
           </div>
         ) : traces.length > 0 ? (
