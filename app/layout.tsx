@@ -10,6 +10,7 @@ import { InboxProvider } from "@/lib/notifications/InboxProvider";
 import { PwaRegistrar } from "@/components/pwa/pwa-registrar";
 import { DebugMount } from "@/components/debug/debug-mount";
 import { RpcDegradedBanner } from "@/components/debug/RpcPanel";
+import { WebVitals } from "@/app/web-vitals";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -65,6 +66,7 @@ export default function RootLayout({
                   {children}
                   <Footer />
                   <DebugMount />
+                  <WebVitals />
                 </InboxProvider>
               </HealthProvider>
             </RealtimeProvider>
