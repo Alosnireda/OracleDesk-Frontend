@@ -1,4 +1,4 @@
-import type { rpc } from "@stellar/stellar-sdk";
+import { xdr, type rpc } from "@stellar/stellar-sdk";
 import { marketCore, rpcServer, type OutcomeTag } from "./clients";
 import { CONTRACTS, RPC_URL } from "./config";
 import { priceYesBps } from "./generated/fpmm";
@@ -179,5 +179,144 @@ export async function fetchMarketTrades(marketId: bigint, opts: { want: number; 
       if (attempt > 0 || !/oldest|retention|startLedger|start ledger/i.test(String(error))) throw error;
       cache.delete(key);
     }
+  }
+}
+
+// ─── Generic contract event reader ─────────────────────────────────────────
+
+/** One successful contract event, still in XDR form for the caller to decode
+ * with the relevant binding spec. */
+export interface RawContractEvent {
+  id: string;
+  ledger: number;
+  ledgerClosedAt: string;
+  txHash: string;
+  contractId: string | null;
+  topics: xdr.ScVal[];
+  value: xdr.ScVal;
+}
+
+export interface EventWindow {
+  oldestLedger: number;
+  latestLedger: number;
+  ledgerRetentionWindow: number;
+}
+
+export interface ReadContractEventsOptions {
+  contractId: string;
+  /** First topic symbol, e.g. "agent_registered". */
+  topic0?: string;
+  /** How many topic segments the event carries. The rest become "*" wildcards. */
+  topicCount?: number;
+  /** Full topic filter; overrides topic0/topicCount (use the binding's
+   * spec.eventTopicFilter to stay pinned to the contract). */
+  topics?: string[];
+  startLedger?: number;
+  /** Exclusive, like RPC's endLedger. Defaults to latestLedger + 1. */
+  endLedger?: number;
+  pageLimit?: number;
+  maxPages?: number;
+  signal?: AbortSignal;
+  server?: EventServer;
+}
+
+export interface ContractEventRead {
+  events: RawContractEvent[];
+  window: EventWindow;
+  /** True when maxPages stopped the read before the RPC ran out of events. */
+  partial: boolean;
+  pages: number;
+}
+
+function defaultEventServer(): EventServer {
+  return rpcServer();
+}
+
+/** Oldest/latest ledgers the RPC still serves events for. */
+export async function eventWindow(server: EventServer = defaultEventServer()): Promise<EventWindow> {
+  const health = await server.getHealth();
+  const retention = health.ledgerRetentionWindow ?? 0;
+  const oldestLedger = health.oldestLedger > 0
+    ? health.oldestLedger
+    : Math.max(1, health.latestLedger - (retention || 17_280));
+  return { oldestLedger, latestLedger: health.latestLedger, ledgerRetentionWindow: retention };
+}
+
+function eventTopics(options: ReadContractEventsOptions): string[] {
+  if (options.topics?.length) return options.topics;
+  if (!options.topic0) throw new Error("readContractEvents needs topic0 or topics");
+  const count = Math.max(1, options.topicCount ?? 1);
+  return [
+    xdr.ScVal.scvSymbol(options.topic0).toXDR("base64"),
+    ...Array.from({ length: count - 1 }, () => "*"),
+  ];
+}
+
+/**
+ * Reads one contract event kind from the RPC, oldest first, following the
+ * cursor until the RPC runs out or maxPages is reached. Duplicate ids across
+ * pages are removed. Callers get `partial` so they can say what they missed.
+ */
+export async function fetchContractEvents(options: ReadContractEventsOptions): Promise<ContractEventRead> {
+  const server = options.server ?? defaultEventServer();
+  const window = await eventWindow(server);
+  const start = Math.max(window.oldestLedger, Math.floor(options.startLedger ?? window.oldestLedger));
+  const end = Math.max(start, Math.floor(options.endLedger ?? window.latestLedger + 1));
+  const limit = Math.min(1000, Math.max(1, options.pageLimit ?? 200));
+  const maxPages = Math.max(1, options.maxPages ?? 20);
+  const filters: rpc.Api.EventFilter[] = [{
+    type: "contract",
+    contractIds: [options.contractId],
+    topics: [eventTopics(options)],
+  }];
+
+  const events: RawContractEvent[] = [];
+  const seen = new Set<string>();
+  let cursor = "";
+  let pages = 0;
+  let partial = false;
+
+  while (start < end && pages < maxPages) {
+    options.signal?.throwIfAborted();
+    const page = cursor
+      ? await server.getEvents({ filters, cursor, limit })
+      : await server.getEvents({ filters, startLedger: start, endLedger: end, limit });
+    options.signal?.throwIfAborted();
+    pages += 1;
+
+    for (const event of page.events) {
+      if (event.type !== "contract" || !event.inSuccessfulContractCall) continue;
+      if (event.ledger < start || event.ledger >= end || seen.has(event.id)) continue;
+      seen.add(event.id);
+      events.push({
+        id: event.id,
+        ledger: event.ledger,
+        ledgerClosedAt: event.ledgerClosedAt,
+        txHash: event.txHash,
+        contractId: event.contractId?.contractId() ?? null,
+        topics: event.topic,
+        value: event.value,
+      });
+    }
+
+    const hasMore = page.events.length >= limit && Boolean(page.cursor);
+    if (!hasMore || page.cursor === cursor) break;
+    if (pages >= maxPages) {
+      partial = true;
+      break;
+    }
+    cursor = page.cursor;
+  }
+
+  return { events, window, partial, pages };
+}
+
+/** Streaming form of {@link fetchContractEvents}; pages are fetched lazily by
+ * the underlying promise, then yielded in ledger order. */
+export async function* readContractEvents(options: ReadContractEventsOptions): AsyncGenerator<RawContractEvent> {
+  const page = await fetchContractEvents(options);
+  for (const event of page.events) {
+    options.signal?.throwIfAborted();
+    yield event;
   }
 }

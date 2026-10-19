@@ -64,6 +64,21 @@ describe("describeError", () => {
     expect(describeError("balance is not sufficient to spend").kind).toBe("insufficient-balance");
   });
 
+  it("maps reasoning-registry errors with friendly messages", () => {
+    expect(describeError("Error(Contract, #3)", "reasoningRegistry")).toMatchObject({
+      kind: "contract",
+      code: "AgentAlreadyRegistered",
+      message: "This agent is already registered.",
+    });
+    expect(describeError("Error(Contract, #4)", "reasoningRegistry")).toMatchObject({
+      kind: "contract",
+      code: "AgentNotRegistered",
+      message: "This agent isn't registered.",
+    });
+    expect(describeError("Error(Contract, #6)", "reasoningRegistry").message).toMatch(/action/i);
+    expect(describeError("Error(Contract, #7)", "reasoningRegistry").message).toMatch(/IPFS CID/i);
+  });
+
   it("falls back to a readable message", () => {
     expect(describeError(new TypeError("Failed to fetch")).kind).toBe("network");
     expect(describeError(42).message).toMatch(/something went wrong/i);

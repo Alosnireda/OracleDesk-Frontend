@@ -1,6 +1,7 @@
-import { Address, nativeToScVal, xdr } from "@stellar/stellar-sdk";
+import { xdr } from "@stellar/stellar-sdk";
 import { marketCore } from "./clients";
 import { CONTRACTS } from "./config";
+import { marketKey, positionKey } from "./ledger-keys";
 import type { Settlement } from "./generated/fpmm";
 import type { Market, Position } from "./generated/market-core";
 
@@ -16,29 +17,11 @@ import type { Market, Position } from "./generated/market-core";
 export const LEDGER_ENTRY_CHUNK_SIZE = 200;
 
 export function marketLedgerKey(marketId: bigint): xdr.LedgerKey {
-  const key = xdr.ScVal.scvVec([xdr.ScVal.scvSymbol("Market"), nativeToScVal(marketId, { type: "u64" })]);
-  return xdr.LedgerKey.contractData(
-    new xdr.LedgerKeyContractData({
-      contract: new Address(CONTRACTS.marketCore).toScAddress(),
-      key,
-      durability: xdr.ContractDataDurability.persistent(),
-    }),
-  );
+  return marketKey(marketCore().spec, marketId, CONTRACTS.marketCore);
 }
 
 export function positionLedgerKey(marketId: bigint, holder: string): xdr.LedgerKey {
-  const key = xdr.ScVal.scvVec([
-    xdr.ScVal.scvSymbol("Position"),
-    nativeToScVal(marketId, { type: "u64" }),
-    new Address(holder).toScVal(),
-  ]);
-  return xdr.LedgerKey.contractData(
-    new xdr.LedgerKeyContractData({
-      contract: new Address(CONTRACTS.marketCore).toScAddress(),
-      key,
-      durability: xdr.ContractDataDurability.persistent(),
-    }),
-  );
+  return positionKey(marketCore().spec, marketId, holder, CONTRACTS.marketCore);
 }
 
 export function chunks<T>(values: T[], size: number): T[][] {

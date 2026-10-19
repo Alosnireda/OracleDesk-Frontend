@@ -188,9 +188,20 @@ export default function PremiumPage() {
   // requested here, so loading the page can't open a wallet prompt.
   useEffect(() => {
     if (!address || isWrongNetwork) return;
-    for (const payment of listPending(address, NETWORK_PASSPHRASE)) {
-      if (payment.state === "submitted" || payment.state === "verifying") void resumePayment(payment);
-    }
+    const pending = listPending(address, NETWORK_PASSPHRASE).filter(
+      (payment) => payment.state === "submitted" || payment.state === "verifying",
+    );
+    if (pending.length === 0) return;
+    let cancelled = false;
+    // Resume outside the effect body: each verification updates React Query
+    // state, and the lint rule correctly treats that as an external update.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      for (const payment of pending) void resumePayment(payment);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [address, isWrongNetwork, resumePayment]);
 
   const fees = prepareTransfer.data?.fees;

@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useBurstFeed } from "@/lib/realtime/useBurst";
 import { formatFeedTime } from "@/lib/realtime/format";
 import { RealtimeProfiler } from "@/components/realtime-profiler";
 import Link from "next/link";
 import { useMarkets } from "@/lib/hooks/useMarkets";
-import { useOnChainMarket, useOnChainMarkets, type OnChainMarketView } from "@/lib/hooks/useStellar";
+import { useOnChainMarket, useOnChainMarkets, useMarketsHeartbeat, type OnChainMarketView } from "@/lib/hooks/useStellar";
 import type { Market, MarketStatus, MarketTracePreview } from "@/lib/api/markets";
 import { BACKEND_CATEGORIES, BACKEND_CATEGORY_LABELS } from "@/lib/stellar/categories";
 import { formatUsdc } from "@/lib/stellar/units";
@@ -280,6 +280,9 @@ function OnChainOnlyMarkets({ knownIds }: { knownIds: Set<string> }) {
 export default function Markets() {
   const [status, setStatus] = useState<MarketStatus>("ACTIVE");
   const [category, setCategory] = useState<string>("");
+  // One 30 s timer for every visible market card; queries in the same tick
+  // are coalesced into a single batched ledger-entry read.
+  useMarketsHeartbeat();
   const { data, isLoading, error, refetch, isFetching } = useMarkets({ 
     status, 
     category: (category || undefined) as Market["category"] | undefined,

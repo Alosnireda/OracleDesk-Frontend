@@ -8,13 +8,24 @@ export default function OfflinePage() {
   const [target, setTarget] = useState("/markets");
 
   useEffect(() => {
-    try {
-      const last = window.sessionStorage.getItem(LAST_URL_KEY);
-      // Same-origin paths only.
-      if (last && last.startsWith("/") && !last.startsWith("//") && !last.startsWith("/offline")) setTarget(last);
-    } catch {
-      // storage blocked: keep the default
-    }
+    let cancelled = false;
+    // Defer the read/setState so the effect only subscribes to the browser
+    // storage side-effect; this also avoids a cascading render on mount.
+    queueMicrotask(() => {
+      if (cancelled) return;
+      try {
+        const last = window.sessionStorage.getItem(LAST_URL_KEY);
+        // Same-origin paths only.
+        if (last && last.startsWith("/") && !last.startsWith("//") && !last.startsWith("/offline")) {
+          setTarget(last);
+        }
+      } catch {
+        // storage blocked: keep the default
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

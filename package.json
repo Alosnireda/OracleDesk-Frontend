@@ -12,6 +12,7 @@
     "sync:bindings": "node scripts/sync-bindings.mjs",
     "check:bindings": "node scripts/sync-bindings.mjs --check",
     "e2e:testnet": "vitest run --config vitest.e2e.config.mts",
+    "bench:clients": "node scripts/bench-clients.mjs",
     "test:scripts": "node --test scripts/__tests__/"
   },
   "dependencies": {

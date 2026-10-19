@@ -12,7 +12,7 @@ import { getTrace, ReasoningTrace } from "@/lib/api/traces";
 import { confirmCopyTrade, initiateCopyTrade } from "@/lib/api/trade";
 import { ApiError } from "@/lib/api/client";
 import { useMarket } from "@/lib/hooks/useMarkets";
-import { useBuy, useQuoteBuy, useUsdcBalance, useAccountReserve, usePrepareBuy, useOnChainMarket, fetchOnChainMarket, useUsdcTrustline, useEnableUsdc, useUsdcBalanceState, type PreparedWriteReview } from "@/lib/hooks/useStellar";
+import { useBuy, useQuoteBuy, useUsdcBalance, useAccountReserve, usePrepareBuy, useOnChainMarket, fetchOnChainMarketBySimulation, useUsdcTrustline, useEnableUsdc, useUsdcBalanceState, type PreparedWriteReview } from "@/lib/hooks/useStellar";
 import { explorerTx } from "@/lib/stellar/config";
 import { formatUsdc, formatXlm, minOut, shareOf, bpsToPercent } from "@/lib/stellar/units";
 import { TxPhase } from "@/lib/stellar/tx-lifecycle";
@@ -236,7 +236,7 @@ function CopyTradeContent() {
         return;
       }
 
-      const freshMarket = await fetchOnChainMarket(onChainMarketId);
+      const freshMarket = await fetchOnChainMarketBySimulation(onChainMarketId);
       const freshLedgerNow = getLedgerNow();
       if (
         freshLedgerNow === null ||

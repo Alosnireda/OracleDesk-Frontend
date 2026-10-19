@@ -1,3 +1,4 @@
+import { StrKey } from "@stellar/stellar-sdk";
 import deployments from "./generated/deployments.testnet.json";
 
 /**
@@ -68,6 +69,38 @@ sources.ADMIN_ADDRESSES = ADMIN_ADDRESSES.length ? "env" : "fallback";
 
 export const isAdminAddress = (address: string | null | undefined) =>
   Boolean(address) && ADMIN_ADDRESSES.includes(address as string);
+
+/**
+ * Extra reasoning-registry agents an operator knows about, for /admin/agents.
+ * The page also discovers agents from AgentRegistered/TracePublished events
+ * and the deployment file; this list covers agents whose events are older than
+ * the RPC's retention window. Invalid entries are dropped instead of being
+ * sent to the contract.
+ */
+const validAgentAddress = (address: string) => {
+  try {
+    return StrKey.isValidEd25519PublicKey(address) || StrKey.isValidContract(address);
+  } catch {
+    return false;
+  }
+};
+
+export const KNOWN_AGENTS: readonly string[] = (process.env.NEXT_PUBLIC_KNOWN_AGENTS ?? "")
+  .split(",")
+  .map((address) => address.trim())
+  .filter((address) => {
+    if (!address) return false;
+    if (validAgentAddress(address)) return true;
+    console.warn(`[config] Ignoring invalid NEXT_PUBLIC_KNOWN_AGENTS entry: ${address}`);
+    return false;
+  });
+sources.KNOWN_AGENTS = KNOWN_AGENTS.length ? "env" : "fallback";
+
+/** Default YES-price tolerance (bps) for the admin diagnostics sampler. */
+export const DIAGNOSTICS_TOLERANCE_BPS = (() => {
+  const value = Number(process.env.NEXT_PUBLIC_DIAGNOSTICS_TOLERANCE_BPS);
+  return Number.isFinite(value) && value >= 0 ? Math.floor(value) : 100;
+})();
 
 export const IPFS_GATEWAY = env(process.env.NEXT_PUBLIC_IPFS_GATEWAY_URL, "https://ipfs.io/ipfs", "IPFS_GATEWAY");
 

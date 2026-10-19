@@ -1,5 +1,5 @@
 import { Address, nativeToScVal, rpc, scValToNative } from "@stellar/stellar-sdk";
-import { AssembledTransaction } from "@stellar/stellar-sdk/contract";
+import { AssembledTransaction, Client as ContractClient, Spec } from "@stellar/stellar-sdk/contract";
 import type { ClientOptions, SignTransaction } from "@stellar/stellar-sdk/contract";
 import { Client as MarketCoreClient, type Category, type Outcome } from "./generated/market-core";
 import { Client as TreasuryClient } from "./generated/treasury";
@@ -63,19 +63,128 @@ export function options(
     networkPassphrase: NETWORK_PASSPHRASE,
     rpcUrl,
     allowHttp: rpcUrl.startsWith("http://"),
+    // One Server (one HTTP client, one connection pool) for every client and
+    // every AssembledTransaction. ClientOptions.server is part of SDK 16.
+    server: rpcServer(rpcUrl),
     ...(signer ? { publicKey: signer.publicKey, signTransaction: signer.signTransaction } : {}),
     ...(extra?.timeoutInSeconds !== undefined ? { timeoutInSeconds: extra.timeoutInSeconds } : {}),
   };
 }
 
-export const marketCore = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
-  new MarketCoreClient(options(CONTRACTS.marketCore, signer, opts, rpcUrl));
-export const treasury = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
-  new TreasuryClient(options(CONTRACTS.treasury, signer, opts, rpcUrl));
-export const resolver = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
-  new ResolverClient(options(CONTRACTS.resolver, signer, opts, rpcUrl));
-export const reasoningRegistry = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
-  new ReasoningRegistryClient(options(CONTRACTS.reasoningRegistry, signer, opts, rpcUrl));
+type ClientName = "marketCore" | "treasury" | "resolver" | "reasoningRegistry";
+type ClientOptionsFor = ClientOptions & { timeoutInSeconds?: number };
+
+const CLIENT_CTORS = {
+  marketCore: MarketCoreClient,
+  treasury: TreasuryClient,
+  resolver: ResolverClient,
+  reasoningRegistry: ReasoningRegistryClient,
+} as const;
+
+type ClientFor<K extends ClientName> = InstanceType<(typeof CLIENT_CTORS)[K]>;
+type GeneratedClient = ClientFor<ClientName>;
+
+/**
+ * Parsed specs per contract. Generated constructors decode every base64 spec
+ * entry in `new ContractSpec([...])`; doing that once per contract is enough,
+ * and signer-bound clients then share the exact same parsed spec.
+ */
+const specs = new Map<ClientName, Spec>();
+const readOnlyClients = new Map<string, GeneratedClient>();
+let signerClients = new WeakMap<Signer, Map<string, GeneratedClient>>();
+let specBuilds = 0;
+
+const contractIdFor = (name: ClientName) => CONTRACTS[name];
+
+function buildGeneratedClient<K extends ClientName>(name: K, opts: ClientOptionsFor): ClientFor<K> {
+  const Ctor = CLIENT_CTORS[name] as unknown as new (options: ClientOptions) => ClientFor<K>;
+  return new Ctor(opts);
+}
+
+function specFor(name: ClientName): Spec {
+  const cached = specs.get(name);
+  if (cached) return cached;
+  // The generated module owns the pinned spec entries; constructing one
+  // client is the public way to obtain them. Its server is the shared one.
+  specBuilds += 1;
+  const spec = buildGeneratedClient(name, options(contractIdFor(name))).spec;
+  specs.set(name, spec);
+  return spec;
+}
+
+/** A Client built from an already-parsed spec. The generated methods are
+ * installed by the base class from the spec at runtime, so the shape matches
+ * the generated Client exactly (see clients-cache.test-d.ts). */
+function clientFromSpec<K extends ClientName>(name: K, opts: ClientOptionsFor): ClientFor<K> {
+  return new ContractClient(specFor(name), opts) as unknown as ClientFor<K>;
+}
+
+const cacheKey = (name: ClientName, contractId: string, rpcUrl: string, opts?: { timeoutInSeconds?: number }) =>
+  `${name}|${contractId}|${rpcUrl}|${NETWORK_PASSPHRASE}|${opts?.timeoutInSeconds ?? ""}`;
+
+function shared<K extends ClientName>(name: K, opts?: { timeoutInSeconds?: number }, rpcUrl?: string): ClientFor<K> {
+  const contractId = contractIdFor(name);
+  const url = rpcUrl ?? currentRpcUrl();
+  const key = cacheKey(name, contractId, url, opts);
+  const cached = readOnlyClients.get(key);
+  if (cached) return cached as ClientFor<K>;
+
+  const client = clientFromSpec(name, options(contractId, undefined, opts, url));
+  // A read-only client must never be reused for a write. `options` without a
+  // signer cannot set publicKey, but keep the invariant explicit.
+  if (client.options.publicKey) throw new Error("Refusing to cache a signer-bound client as read-only");
+  readOnlyClients.set(key, client);
+  return client;
+}
+
+function bound<K extends ClientName>(name: K, signer: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string): ClientFor<K> {
+  const contractId = contractIdFor(name);
+  const url = rpcUrl ?? currentRpcUrl();
+  // The signer object is the identity boundary: WalletProvider creates a new
+  // one when the address changes, so account A's client can never be returned
+  // for account B. publicKey is also part of the key as defence in depth.
+  const key = `${cacheKey(name, contractId, url, opts)}|${signer.publicKey}`;
+  let byKey = signerClients.get(signer);
+  if (!byKey) {
+    byKey = new Map();
+    signerClients.set(signer, byKey);
+  }
+  const cached = byKey.get(key);
+  if (cached) return cached as ClientFor<K>;
+
+  const client = clientFromSpec(name, options(contractId, signer, opts, url));
+  byKey.set(key, client);
+  return client;
+}
+
+export function marketCore(signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) {
+  return signer ? bound("marketCore", signer, opts, rpcUrl) : shared("marketCore", opts, rpcUrl);
+}
+export function treasury(signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) {
+  return signer ? bound("treasury", signer, opts, rpcUrl) : shared("treasury", opts, rpcUrl);
+}
+export function resolver(signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) {
+  return signer ? bound("resolver", signer, opts, rpcUrl) : shared("resolver", opts, rpcUrl);
+}
+export function reasoningRegistry(signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) {
+  return signer
+    ? bound("reasoningRegistry", signer, opts, rpcUrl)
+    : shared("reasoningRegistry", opts, rpcUrl);
+}
+
+/** Test-only: clears memoised specs/clients so a test can observe a cold start. */
+export function __resetClientCaches(): void {
+  specs.clear();
+  readOnlyClients.clear();
+  signerClients = new WeakMap();
+  specBuilds = 0;
+}
+
+/** Test-only: number of generated-client constructions whose only purpose was
+ * parsing a contract spec. It must not grow when a signer-bound client is built. */
+export function __specBuildCount(): number {
+  return specBuilds;
+}
 
 /**
  * The USDC Stellar Asset Contract. A SAC has no Wasm and so no generated
