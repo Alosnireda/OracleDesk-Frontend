@@ -66,6 +66,8 @@ export const stellarKeys = {
   market: (id: string) => ["stellar", "market", id] as const,
   markets: (limit = 20) => ["stellar", "markets", limit] as const,
   position: (id: string, holder: string) => ["stellar", "position", id, holder] as const,
+  myPositions: (holder: string, totalMarkets: string) =>
+    ["stellar", "myPositions", holder, totalMarkets] as const,
   balance: (owner: string) => ["stellar", "usdcBalance", owner] as const,
   trustline: (owner: string) => ["stellar", "usdcTrustline", owner] as const,
   account: (addr: string) => ["stellar", "account", addr] as const,
