@@ -112,6 +112,9 @@ export async function verifyTrace(traceId: string) {
   return data;
 }
 
+/** The backend unlock route needs a trace id in the path; a daily pass covers every trace. */
+export const DAILY_PASS_TRACE_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
+
 /**
  * Daily pass: after paying with a USDC transfer to PAYMENTS_RECIPIENT, hand
  * the backend the transaction hash; it verifies the transfer on-chain.
@@ -126,6 +129,15 @@ export async function unlockDailyPass(traceId: string, txHash: string, amountRaw
   return data;
 }
 
+/**
+ * Activates a daily pass for a paid transaction. The only place that knows the
+ * backend route still needs a placeholder trace id; swap the body once a
+ * dedicated pass endpoint exists.
+ */
+export function activateDailyPass(txHash: string, amountRaw: string) {
+  return unlockDailyPass(DAILY_PASS_TRACE_PLACEHOLDER, txHash, amountRaw);
+}
+
 export async function getSpendingAllowance() {
   const { data } = await apiClient.get<SpendingAllowance | null>("/traces/access/allowance");
   return data;
@@ -138,6 +150,16 @@ export async function setSpendingAllowance(allowance: {
 }) {
   const { data } = await apiClient.put<SpendingAllowance>("/traces/access/allowance", allowance);
   return data;
+}
+
+export interface PaymentEvent {
+  id: string;
+  txHash: string;
+  type: string;
+  amountRaw: string;
+  status: string;
+  createdAt: string;
+  confirmedAt: string | null;
 }
 
 export async function getPaymentEvents() {
