@@ -6,8 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { useMarket } from "@/lib/hooks/useMarkets";
-import { getMarketByOnChainId } from "@/lib/api/markets";
+import { useMarket, useMarketQuestionIntegrity } from "@/lib/hooks/useMarkets";
+import { QuestionVerificationBadge } from "@/components/question-verification-badge";
+import { ResolverStatusPanel } from "@/components/resolver-status-panel";
+import { getMarketByOnChainId, getResolution } from "@/lib/api/markets";
 import { ApiError } from "@/lib/api/client";
 import { useOnChainMarket, usePosition } from "@/lib/hooks/useStellar";
 import { useWalletAddress } from "@/lib/contexts/WalletContext";
@@ -54,6 +56,12 @@ function MarketQuickViewContent() {
   const market = backendById.data ?? backendByChainId.data ?? null;
   const onChainMarketId = market?.onChainMarketId ?? onChainIdParam ?? null;
   const chain = useOnChainMarket(onChainMarketId);
+  const resolutionQuery = useQuery({
+    queryKey: ["market-resolution", marketId || onChainMarketId],
+    queryFn: () => getResolution((marketId ?? market?.id) as string),
+    enabled: Boolean(marketId || market?.id),
+    retry: false,
+  });
 
   const { address } = useWalletAddress();
   const position = usePosition(onChainMarketId, address);
@@ -100,6 +108,13 @@ function MarketQuickViewContent() {
   }
 
   const title = market?.question ?? `Market #${onChainMarketId} · ${view?.market.meta_uri ?? ""}`;
+  const questionIntegrity = useMarketQuestionIntegrity({
+    marketId,
+    onChainMarketId,
+    displayedQuestion: title,
+    metaUri: view?.market.meta_uri ?? market?.metaUri,
+    questionHash: view?.market.question_hash ?? market?.questionHash,
+  });
   const statusLabel = chainStatus
     ? chainStatus.tag === "Resolved" ? `RESOLVED ${chainStatus.values[0].tag.toUpperCase()}` : chainStatus.tag === "Void" ? "VOID" : isOpen ? "OPEN" : "CLOSED"
     : market?.status ?? "";
@@ -166,10 +181,21 @@ function MarketQuickViewContent() {
               {/* Content Area */}
               <div className="p-6 space-y-6">
                 {/* Market Question */}
-                <div>
-                  <h2 className="font-headline-sm text-headline-sm text-on-surface leading-tight">
-                    {title}
-                  </h2>
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <h2 className="font-headline-sm text-headline-sm text-on-surface leading-tight">
+                      {title}
+                    </h2>
+                    {questionIntegrity.data && (
+                      <QuestionVerificationBadge
+                        status={questionIntegrity.data.status}
+                        result={questionIntegrity.data}
+                      />
+                    )}
+                  </div>
+                  {questionIntegrity.data?.status === "mismatch" && (
+                    <QuestionVerificationBadge status="mismatch" result={questionIntegrity.data} />
+                  )}
                 </div>
 
                 {fromPush && view && <PushVerifiedStatus marketId={view.id} market={view.market} position={position.data ?? null} />}
@@ -239,6 +265,14 @@ function MarketQuickViewContent() {
 
                 {onChainMarketId !== null && <TradeTape onChainMarketId={onChainMarketId} limit={20} compact />}
 
+                {/* Resolution Status & Commitment Panel */}
+                <ResolverStatusPanel
+                  resolverState={resolutionQuery.data?.resolverState ?? "Unconfigured"}
+                  marketStatus={statusLabel}
+                  resolutionHash={view?.market.resolution_hash ?? market?.resolutionHash ?? resolutionQuery.data?.resolutionHash}
+                  resolutionSpec={market?.resolutionSpec ?? resolutionQuery.data?.resolutionSpec}
+                />
+
                 {/* AI Reasoning Snippet */}
                 <div className="bg-[#f0f9fa] border border-primary-container/20 p-4 rounded-lg space-y-2 relative overflow-hidden">
                   <div className="flex items-center gap-2 text-primary z-10 relative">
@@ -251,6 +285,20 @@ function MarketQuickViewContent() {
                       : "No reasoning trace has been published for this market yet."
                     }
                   </p>
+                  <div className="flex items-center justify-between z-10 relative pt-1">
+                    <span className="text-[11px] text-on-surface-variant">
+                      {latestTrace ? "Every agent decision is backed by on-chain reasoning." : "Pending first agent reasoning publish."}
+                    </span>
+                    {onChainMarketId !== null && (
+                      <Link
+                        href={`/reasoning/verify?marketId=${market?.id ?? onChainMarketId}&onChainMarketId=${onChainMarketId}`}
+                        className="inline-flex items-center gap-1 text-[11px] font-label-caps font-bold text-primary hover:underline"
+                      >
+                        <span className="material-symbols-outlined text-xs">fact_check</span>
+                        Audit All Traces
+                      </Link>
+                    )}
+                  </div>
                   <div className="absolute right-0 bottom-0 opacity-5 translate-x-4 translate-y-4">
                     <Icon name="neurology" className="text-6xl" />
                   </div>

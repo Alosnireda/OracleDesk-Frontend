@@ -138,9 +138,23 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
                 AI {aiSignal}: {aiStatus}
               </span>
             </div>
+            {questionIntegrity.data && (
+              <QuestionVerificationBadge
+                status={questionIntegrity.data.status}
+                result={questionIntegrity.data}
+                compact={true}
+              />
+            )}
           </div>
           <span className="font-data-mono text-label-caps text-on-surface-variant">EXP: {expiry}</span>
         </div>
+
+        {questionIntegrity.data?.status === "mismatch" && (
+          <div className="mb-3">
+            <QuestionVerificationBadge status="mismatch" result={questionIntegrity.data} />
+          </div>
+        )}
+
         <Link href={href} className="block">
           <h3 className="font-headline-sm text-headline-sm text-on-surface mb-6 group-hover:text-primary transition-colors line-clamp-3">
             {title}
