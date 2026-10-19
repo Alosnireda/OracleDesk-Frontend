@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import { PushSettings } from "@/components/settings/push-settings";
 
 const SettingsSection = ({ title, icon, children, className = "" }: { title: string; icon: string; children: React.ReactNode; className?: string }) => (
   <section className={`bg-surface-container-lowest border border-outline-variant p-6 rounded-lg transition-all hover:shadow-sm ${className}`}>
@@ -31,11 +32,6 @@ const ToggleSwitch = ({ checked, onChange, label, sublabel }: { checked: boolean
 export default function SettingsPage() {
   const [slippage, setSlippage] = useState("0.5%");
   const [autoApprove, setAutoApprove] = useState(false);
-  const [notifications, setNotifications] = useState({
-    execution: true,
-    news: true,
-    shifts: false,
-  });
 
   return (
     <main className="flex-grow pt-8 pb-20 px-gutter max-w-container-max-width mx-auto w-full">
@@ -172,23 +168,7 @@ export default function SettingsPage() {
 
           {/* Notifications Section */}
           <SettingsSection title="Notifications" icon="notifications_active">
-            <div className="space-y-4">
-              <ToggleSwitch
-                label="Execution Alerts"
-                checked={notifications.execution}
-                onChange={() => setNotifications({ ...notifications, execution: !notifications.execution })}
-              />
-              <ToggleSwitch
-                label="Market News Insights"
-                checked={notifications.news}
-                onChange={() => setNotifications({ ...notifications, news: !notifications.news })}
-              />
-              <ToggleSwitch
-                label="Probability Shifts (>5%)"
-                checked={notifications.shifts}
-                onChange={() => setNotifications({ ...notifications, shifts: !notifications.shifts })}
-              />
-            </div>
+            <PushSettings />
           </SettingsSection>
 
           {/* AI Insights Prompt */}

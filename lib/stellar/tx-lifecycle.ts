@@ -45,20 +45,22 @@ export class TxLifecycle<T> {
   private listeners = new Set<() => void>();
   private aborted = false;
   private timer: ReturnType<typeof setTimeout> | null = null;
-  private readonly server: rpc.Server;
+  private readonly getServer: () => rpc.Server;
   private readonly contract: ContractName;
   private readonly pollIntervalMs: number;
   private readonly maxPollMs: number;
   private readonly onHash?: (hash: string) => void;
 
   constructor(opts: {
-    server: rpc.Server;
+    /** A server, or a getter so each run uses the pool's (pinned) endpoint. */
+    server: rpc.Server | (() => rpc.Server);
     contract: ContractName;
     pollIntervalMs?: number;
     maxPollMs?: number;
     onHash?: (hash: string) => void;
   }) {
-    this.server = opts.server;
+    const server = opts.server;
+    this.getServer = typeof server === "function" ? server : () => server;
     this.contract = opts.contract;
     this.pollIntervalMs = opts.pollIntervalMs ?? 1000;
     this.maxPollMs = opts.maxPollMs ?? 60_000;
@@ -140,7 +142,7 @@ export class TxLifecycle<T> {
     this.setPhase({ name: "submitting", hash });
     let sendRes: rpc.Api.SendTransactionResponse;
     try {
-      sendRes = await this.server.sendTransaction(signed as unknown as import("@stellar/stellar-sdk").Transaction);
+      sendRes = await this.getServer().sendTransaction(signed as unknown as import("@stellar/stellar-sdk").Transaction);
     } catch (err) {
       const described: TxDescribedError = {
         ...describeError(err, this.contract),
@@ -190,7 +192,7 @@ export class TxLifecycle<T> {
 
       let getRes: rpc.Api.GetTransactionResponse;
       try {
-        getRes = await this.server.getTransaction(hash);
+        getRes = await this.getServer().getTransaction(hash);
       } catch {
         // Transient network error; continue polling
         continue;
