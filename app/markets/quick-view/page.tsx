@@ -691,6 +691,20 @@ function MarketQuickViewContent() {
                       : "No reasoning trace has been published for this market yet."
                     }
                   </p>
+                  <div className="flex items-center justify-between z-10 relative pt-1">
+                    <span className="text-[11px] text-on-surface-variant">
+                      {latestTrace ? "Every agent decision is backed by on-chain reasoning." : "Pending first agent reasoning publish."}
+                    </span>
+                    {onChainMarketId !== null && (
+                      <Link
+                        href={`/reasoning/verify?marketId=${market?.id ?? onChainMarketId}&onChainMarketId=${onChainMarketId}`}
+                        className="inline-flex items-center gap-1 text-[11px] font-label-caps font-bold text-primary hover:underline"
+                      >
+                        <span className="material-symbols-outlined text-xs">fact_check</span>
+                        Audit All Traces
+                      </Link>
+                    )}
+                  </div>
                   <div className="absolute right-0 bottom-0 opacity-5 translate-x-4 translate-y-4">
                     <span className="material-symbols-outlined text-6xl">neurology</span>
                   </div>
