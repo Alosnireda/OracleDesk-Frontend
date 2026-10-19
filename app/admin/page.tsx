@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React from "react";
 import Link from "next/link";
@@ -63,7 +64,7 @@ function AdminContent() {
       <main className="flex-grow flex items-center justify-center p-gutter">
         <div className="max-w-md w-full text-center space-y-6 bg-white p-10 rounded-xl border border-outline-variant shadow-sm">
           <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-            <span className="material-symbols-outlined text-4xl">block</span>
+            <Icon name="block" className="text-4xl" />
           </div>
           <div className="space-y-2">
             <h2 className="font-headline-md text-headline-md">Access Denied</h2>
@@ -79,7 +80,7 @@ function AdminContent() {
             onClick={() => void disconnect().then(() => openModal())}
             className="w-full bg-outline text-on-outline py-4 rounded-lg font-label-caps text-label-caps hover:brightness-90 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
           >
-            <span className="material-symbols-outlined">swap_horiz</span>
+            <Icon name="swap_horiz" />
             SWITCH WALLET
           </button>
         </div>
@@ -100,14 +101,14 @@ function AdminContent() {
           href="/admin/create" 
           className="bg-primary text-primary-foreground px-6 py-4 rounded-lg font-label-caps text-label-caps flex items-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all shadow-lg"
         >
-          <span className="material-symbols-outlined">add_circle</span>
+          <Icon name="add_circle" />
           CREATE NEW MARKET
         </Link>
         <Link
           href="/admin/agents"
           className="border border-outline text-on-surface px-6 py-4 rounded-lg font-label-caps text-label-caps flex items-center gap-2 hover:bg-surface-container-low transition-all"
         >
-          <span className="material-symbols-outlined">smart_toy</span>
+          <Icon name="smart_toy" />
           MANAGE AGENTS
         </Link>
       </div>

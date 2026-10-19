@@ -271,7 +271,9 @@ export function useOnChainMarket(id: bigint | string | null | undefined) {
     queryFn: async () =>
       newerMarketView(client.getQueryData<OnChainMarketView>(stellarKeys.market(String(id))), await fetchOnChainMarket(id as string)),
     enabled: id !== null && id !== undefined && id !== "",
-    staleTime: 15_000,
+    staleTime: Infinity,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
     // One page-level heartbeat refetches every visible market together, so
     // the batcher gets one request per refresh cycle instead of one per card.
   });
@@ -326,7 +328,9 @@ function positionOptions(client: ReturnType<typeof useQueryClient>, id: bigint |
       signal.throwIfAborted();
       return reconcileRead(client.getQueryData(queryKey), fresh, (a, b) => a.yes === b.yes && a.no === b.no, queryKey);
     },
-    staleTime: 15_000,
+    staleTime: Infinity,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
   };
 }
 export function usePosition(id: bigint | string | null | undefined, holder: string | null | undefined) {
@@ -346,8 +350,9 @@ function balanceOptions(client: ReturnType<typeof useQueryClient>, owner: string
       signal.throwIfAborted();
       return reconcileRead(client.getQueryData(queryKey), fresh, (a, b) => a === b, queryKey);
     },
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: Infinity,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
   };
 }
 export function useUsdcBalance(owner: string | null | undefined) {

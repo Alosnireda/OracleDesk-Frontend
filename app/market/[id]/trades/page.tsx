@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
@@ -65,7 +66,7 @@ export default function MarketTradesPage() {
           href={`/market?id=${marketId}`}
           className="flex items-center gap-2 text-primary hover:underline mb-4 font-label-caps text-label-caps"
         >
-          <span className="material-symbols-outlined text-base">arrow_back</span>
+          <Icon name="arrow_back" className="text-base" />
           Back to Market
         </Link>
         <h1 className="font-display-lg text-display-lg text-on-surface">Trade Attribution</h1>

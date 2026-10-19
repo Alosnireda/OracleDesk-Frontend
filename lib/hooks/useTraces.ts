@@ -18,6 +18,7 @@ export function useTraces(params: ListTracesParams = {}) {
     queryFn: () => listTraces(params),
     staleTime: 15_000,
     refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -34,6 +35,7 @@ export function useInfiniteTraces(params: Omit<ListTracesParams, "page"> = {}) {
       return meta.page + 1;
     },
     staleTime: 15_000,
+    refetchIntervalInBackground: false,
   });
 }
 

@@ -1,4 +1,5 @@
 "use client";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 import React from "react";
 
@@ -11,7 +12,7 @@ import React from "react";
 
 export interface WalletBalance {
   symbol: string;
-  icon: string;
+  icon: IconName;
   amount: string;
   fiat?: string;
 }
@@ -21,8 +22,8 @@ export interface WalletPanelProps {
   address: string;
   addressNote?: string;
   balances: WalletBalance[];
-  networks?: { label: string; icon: string; active: boolean }[];
-  actions?: { label: string; icon: string; onAction?: () => void }[];
+  networks?: { label: string; icon: IconName; active: boolean }[];
+  actions?: { label: string; icon: IconName; onAction?: () => void }[];
   footerNote?: string;
   onDisconnect?: () => void;
 }
@@ -50,7 +51,7 @@ export function WalletPanel({
         </div>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white shadow-inner flex-shrink-0">
-            <span className="material-symbols-outlined">account_balance_wallet</span>
+            <Icon name="account_balance_wallet" />
           </div>
           <div className="flex flex-col overflow-hidden">
             <span className="font-data-mono text-data-mono text-on-surface truncate" title={address}>
@@ -68,7 +69,7 @@ export function WalletPanel({
             <div key={balance.symbol} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full bg-surface-container flex items-center justify-center flex-shrink-0">
-                  <span className="material-symbols-outlined text-primary text-[16px]">{balance.icon}</span>
+                  <Icon name={balance.icon} className="text-primary text-[16px]" />
                 </div>
                 <span className="font-medium text-on-surface">{balance.symbol}</span>
               </div>
@@ -97,7 +98,7 @@ export function WalletPanel({
                     : "border-outline-variant hover:border-primary text-on-surface-variant"
                 }`}
               >
-                <span className="material-symbols-outlined text-[16px]">{network.icon}</span>
+                <Icon name={network.icon} className="text-[16px]" />
                 <span className={`text-[11px] ${network.active ? "font-bold" : "font-medium"}`}>{network.label}</span>
               </button>
             ))}
@@ -118,12 +119,10 @@ export function WalletPanel({
                   className="flex items-center justify-between p-2 rounded hover:bg-surface-container transition-colors group"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">
-                      {item.icon}
-                    </span>
+                    <Icon name={item.icon} className="text-on-surface-variant group-hover:text-primary transition-colors" />
                     <span className="text-body-md font-medium">{item.label}</span>
                   </div>
-                  <span className="material-symbols-outlined text-[16px] text-outline">chevron_right</span>
+                  <Icon name="chevron_right" className="text-[16px] text-outline" />
                 </button>
               ))}
             </div>
@@ -134,7 +133,7 @@ export function WalletPanel({
               onClick={onDisconnect}
               className="mt-4 w-full bg-surface border border-outline-variant hover:bg-error-container/10 hover:border-error hover:text-error transition-all py-2 rounded font-label-caps text-label-caps flex items-center justify-center gap-2"
             >
-              <span className="material-symbols-outlined text-[18px]">logout</span>
+              <Icon name="logout" className="text-[18px]" />
               Disconnect
             </button>
           )}
@@ -143,7 +142,7 @@ export function WalletPanel({
 
       {footerNote && (
         <div className="px-4 py-2 bg-primary-container text-on-primary-container flex items-center justify-center gap-2 text-[10px] font-medium tracking-wide">
-          <span className="material-symbols-outlined text-[14px]">auto_awesome</span>
+          <Icon name="auto_awesome" className="text-[14px]" />
           {footerNote}
         </div>
       )}

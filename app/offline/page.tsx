@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import { useEffect, useState } from "react";
 import { LAST_URL_KEY } from "@/components/pwa/pwa-registrar";
@@ -30,7 +31,7 @@ export default function OfflinePage() {
 
   return (
     <main className="min-h-[calc(100vh-64px)] bg-surface flex flex-col items-center justify-center p-6 text-center">
-      <span className="material-symbols-outlined text-outline text-6xl mb-4" aria-hidden>cloud_off</span>
+      <Icon name="cloud_off" className="text-outline text-6xl mb-4" aria-hidden />
       <h1 className="text-2xl font-bold text-on-surface mb-2">You&apos;re offline</h1>
       <p className="text-on-surface-variant max-w-md mb-2">
         OracleDesk can&apos;t reach the network, so prices, positions and balances can&apos;t be shown right now.

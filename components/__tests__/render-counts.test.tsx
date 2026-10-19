@@ -65,6 +65,13 @@ vi.mock("@/lib/settings/useSettings", () => ({
 vi.mock("@/lib/stellar/ledger-clock", () => ({
   useLedgerNow: () => ({ now: 1_000 }),
   getLedgerNow: () => 1_000,
+  useLedgerClock: () => ({ sequence: 100, closeTime: 1_000, observedAt: 1_000 }),
+  ledgerClock: {
+    subscribe: () => () => {},
+    getLatest: () => ({ sequence: 100, closeTime: 1_000, observedAt: 1_000 }),
+    estimateNow: () => ({ ledger: 100, time: 1_000 }),
+    now: () => 1_000,
+  },
 }));
 
 const signInWithWallet = vi.fn(async (address: string) => ({ walletAddress: address }));

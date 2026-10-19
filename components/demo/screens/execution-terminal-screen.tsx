@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState } from "react";
 import { BuyConfirmationSheet } from "@/components/demo/buy-confirmation-sheet";
@@ -48,7 +49,7 @@ export function ExecutionTerminalScreen() {
           className="w-full bg-tertiary text-white py-3 rounded-lg font-headline-sm text-headline-sm hover:opacity-90 active:scale-[0.98] transition-all shadow-lg flex items-center justify-center gap-2"
         >
           <span>BUY NO</span>
-          <span className="material-symbols-outlined text-xl">trending_down</span>
+          <Icon name="trending_down" className="text-xl" />
         </button>
         {lastAction && (
           <p className="text-center text-xs text-on-surface-variant" role="status">

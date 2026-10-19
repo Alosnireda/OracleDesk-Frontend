@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import { useEffect, useMemo, useState } from "react";
 import { TransactionBuilder } from "@stellar/stellar-sdk";
@@ -147,7 +148,7 @@ export function MultisigReview({
             <h2 className="font-headline-md text-headline-md">Check before collecting signatures</h2>
           </div>
           <button type="button" aria-label="Close multisig review" onClick={onClose} className="p-2 text-outline hover:text-error">
-            <span aria-hidden="true" className="material-symbols-outlined">close</span>
+            <Icon name="close" aria-hidden="true" />
           </button>
         </header>
 

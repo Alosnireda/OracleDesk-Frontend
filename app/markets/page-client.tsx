@@ -1,18 +1,19 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useBurstFeed } from "@/lib/realtime/useBurst";
 import { formatFeedTime } from "@/lib/realtime/format";
 import { RealtimeProfiler } from "@/components/realtime-profiler";
 import Link from "next/link";
-import { useMarkets, useMarketQuestionIntegrity } from "@/lib/hooks/useMarkets";
+import { useMarkets, useInfiniteMarkets } from "@/lib/hooks/useMarkets";
 import { useOnChainMarket, useOnChainMarkets, type OnChainMarketView } from "@/lib/hooks/useStellar";
 import type { Market, MarketStatus, MarketTracePreview } from "@/lib/api/markets";
 import { BACKEND_CATEGORIES, BACKEND_CATEGORY_LABELS } from "@/lib/stellar/categories";
 import { formatUsdc } from "@/lib/stellar/units";
 import { NETWORK_LABEL } from "@/lib/stellar/config";
-import { QuestionVerificationBadge } from "@/components/question-verification-badge";
+import { VirtualList } from "@/components/ui/virtual-list";
 
 const SourceTag = ({ source }: { source: "chain" | "backend" }) => (
   <span
@@ -46,7 +47,7 @@ const FilterBar = ({
       <div className="flex flex-col lg:flex-row gap-4 justify-between items-center">
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           <div className="relative flex-grow min-w-[240px]">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-outline" />
             <input 
               className="w-full pl-10 pr-4 py-2 bg-surface border border-outline-variant rounded-lg text-body-md focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" 
               placeholder="Search markets, assets, or events..." 
@@ -98,12 +99,12 @@ interface MarketCardProps {
   title: string;
   backendYesProb: number | null;
   backendLiquidity: string | null;
-  marketId?: string | null;
-  metaUri?: string | null;
-  questionHash?: string | null;
+  disableEntrance?: boolean;
 }
 
-const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, title, backendYesProb, backendLiquidity, marketId, metaUri, questionHash }: MarketCardProps) => {
+const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, title, backendYesProb, backendLiquidity, disableEntrance }: MarketCardProps) => {
+  const reduceMotion = useReducedMotion();
+  const shouldAnimate = !disableEntrance && !reduceMotion;
   const chain = useOnChainMarket(onChainMarketId);
   const view = chain.data;
   const fromChain = Boolean(view);
@@ -118,19 +119,8 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
   const aiStatus = latestTrace ? `${Math.abs(latestTrace.edge * 100).toFixed(1)}% EDGE` : "STABLE";
   const volume24h = chainStatusLabel(view);
 
-  const questionIntegrity = useMarketQuestionIntegrity({
-    marketId,
-    onChainMarketId,
-    displayedQuestion: title,
-    metaUri: view?.market.meta_uri ?? metaUri,
-    questionHash: view?.market.question_hash ?? questionHash,
-  });
-  
-  return (
-    <motion.div 
-      whileHover={{ y: -4 }}
-      className="group bg-surface border border-outline-variant rounded-xl overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all flex flex-col"
-    >
+  const cardContent = (
+    <>
       <div className="p-5 flex-grow">
         <div className="flex justify-between items-start mb-4">
           <div className="flex gap-2 flex-wrap">
@@ -139,9 +129,11 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
             </span>
             <span className="bg-surface-container-highest text-on-surface-variant px-2 py-1 rounded text-label-caps font-bold uppercase tracking-wider">{category}</span>
             <div className={`flex items-center gap-1 px-2 py-1 rounded ${aiSignal === 'NEUTRAL' || aiSignal === 'ANALYZING' ? 'bg-surface-container-highest' : aiSignal === 'BEARISH' ? 'bg-tertiary-fixed/30' : 'bg-secondary-fixed/30'}`}>
-              <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                {aiSignal === 'ANALYZING' ? 'sync' : aiSignal === 'NEUTRAL' ? 'psychology' : aiSignal === 'BULLISH' ? 'trending_up' : 'trending_down'}
-              </span>
+              <Icon
+                name={aiSignal === 'ANALYZING' ? 'sync' : aiSignal === 'NEUTRAL' ? 'psychology' : aiSignal === 'BULLISH' ? 'trending_up' : 'trending_down'}
+                filled
+                className="text-[14px]"
+              />
               <span className={`${aiSignal === 'NEUTRAL' || aiSignal === 'ANALYZING' ? 'text-on-surface-variant' : aiSignal === 'BEARISH' ? 'text-tertiary' : 'text-secondary'} text-label-caps font-bold uppercase`}>
                 AI {aiSignal}: {aiStatus}
               </span>
@@ -175,16 +167,31 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
               <span className="text-tertiary">NO {noProb}%</span>
             </div>
             <div className="w-full h-2 rounded-full bg-outline-variant overflow-hidden flex">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${yesProb}%` }}
-                className="h-full bg-secondary transition-all duration-700" 
-              />
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${noProb}%` }}
-                className="h-full bg-tertiary transition-all duration-700" 
-              />
+              {shouldAnimate ? (
+                <>
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${yesProb}%` }}
+                    className="h-full bg-secondary transition-all duration-700" 
+                  />
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${noProb}%` }}
+                    className="h-full bg-tertiary transition-all duration-700" 
+                  />
+                </>
+              ) : (
+                <>
+                  <div 
+                    style={{ width: `${yesProb}%` }}
+                    className="h-full bg-secondary transition-all duration-700" 
+                  />
+                  <div 
+                    style={{ width: `${noProb}%` }}
+                    className="h-full bg-tertiary transition-all duration-700" 
+                  />
+                </>
+              )}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 border-t border-outline-variant/30 pt-4">
@@ -205,7 +212,19 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
         <Link href={`${href}&side=YES`} className="bg-secondary text-primary-foreground py-2.5 rounded-lg font-label-caps text-label-caps font-bold hover:brightness-110 active:opacity-80 transition-all uppercase text-center">Bet Yes</Link>
         <Link href={`${href}&side=NO`} className="bg-tertiary text-primary-foreground py-2.5 rounded-lg font-label-caps text-label-caps font-bold hover:brightness-110 active:opacity-80 transition-all uppercase text-center">Bet No</Link>
       </div>
+    </>
+  );
+
+  const containerClass = "group bg-surface border border-outline-variant rounded-xl overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all flex flex-col";
+
+  return shouldAnimate ? (
+    <motion.div whileHover={{ y: -4 }} className={containerClass}>
+      {cardContent}
     </motion.div>
+  ) : (
+    <div className={`${containerClass} hover:-translate-y-1`}>
+      {cardContent}
+    </div>
   );
 };
 
@@ -243,7 +262,7 @@ const TradingFeed = () => {
   return (
     <section className="mt-12">
       <div className="flex items-center gap-2 mb-4">
-        <span className="material-symbols-outlined text-primary">analytics</span>
+        <Icon name="analytics" className="text-primary" />
         <h2 className="font-headline-sm text-headline-sm uppercase tracking-tight">Real-time Trading Feed</h2>
       </div>
       {burst && <p className="text-xs text-on-surface-variant mb-2">{burst.count} trades in the last second{burst.overflow ? ` · ${burst.overflow} more events while this tab was hidden` : ""}.</p>}
@@ -277,7 +296,7 @@ function OnChainOnlyMarkets({ knownIds }: { knownIds: Set<string> }) {
   return (
     <section className="mt-12">
       <div className="flex items-center gap-2 mb-2">
-        <span className="material-symbols-outlined text-primary">link</span>
+        <Icon name="link" className="text-primary" />
         <h2 className="font-headline-sm text-headline-sm uppercase tracking-tight">On-chain markets without OracleDesk metadata</h2>
       </div>
       <p className="text-on-surface-variant text-sm mb-4">
@@ -304,12 +323,30 @@ function OnChainOnlyMarkets({ knownIds }: { knownIds: Set<string> }) {
 export default function MarketsPageClient() {
   const [status, setStatus] = useState<MarketStatus>("ACTIVE");
   const [category, setCategory] = useState<string>("");
-  const { data, isLoading, error, refetch, isFetching } = useMarkets({ 
+  const {
+    data,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+  } = useInfiniteMarkets({ 
     status, 
     category: (category || undefined) as Market["category"] | undefined,
+    limit: 24,
   });
-  const marketsData = data?.markets ?? [];
-  const knownIds = new Set(marketsData.flatMap((m) => (m.onChainMarketId ? [m.onChainMarketId] : [])));
+
+  const marketsData = useMemo(
+    () => data?.pages.flatMap((p) => p.markets) ?? [],
+    [data]
+  );
+  const totalCount = data?.pages[0]?.meta?.total ?? marketsData.length;
+  const knownIds = useMemo(
+    () => new Set(marketsData.flatMap((m) => (m.onChainMarketId ? [m.onChainMarketId] : []))),
+    [marketsData]
+  );
 
   return (
     <div className="min-h-screen bg-surface">
@@ -328,7 +365,7 @@ export default function MarketsPageClient() {
           </div>
         ) : error ? (
           <div className="text-center py-12 bg-surface-container-low rounded-xl border border-error/20">
-            <span className="material-symbols-outlined text-error text-4xl mb-4">error</span>
+            <Icon name="error" className="text-error text-4xl mb-4" />
             <p className="text-on-surface-variant font-medium">Failed to load markets.</p>
             <p className="text-on-surface-variant/70 text-sm mt-2">
               {error instanceof Error ? error.message : "Please check if the backend is running and accessible."}
@@ -349,26 +386,46 @@ export default function MarketsPageClient() {
             No markets match these filters yet.
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {marketsData.map((m) => {
-              const rawProb = m.currentYesProb ?? m.initialYesProb;
-              return (
-                <MarketCard 
-                  key={m.id} 
-                  href={`/markets/quick-view?marketId=${m.id}`}
-                  category={m.category}
-                  onChainMarketId={m.onChainMarketId}
-                  reasoningTraces={m.reasoningTraces}
-                  expiry={new Date(m.expiryTimestamp).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }).toUpperCase()}
-                  title={m.question}
-                  backendYesProb={Math.round(rawProb * 100)}
-                  backendLiquidity={`$${(m.totalLiquidity).toLocaleString()}`}
-                  marketId={m.id}
-                  metaUri={m.metaUri}
-                  questionHash={m.questionHash}
-                />
-              );
-            })}
+          <div>
+            <VirtualList<Market>
+              items={marketsData}
+              totalCount={totalCount}
+              getKey={(m) => m.id}
+              estimateSize={() => 280}
+              columns={{ base: 1, md: 2, xl: 3 }}
+              overscan={3}
+              role="feed"
+              ariaLabel="Prediction markets"
+              restorationKey="markets_grid"
+              onEndReached={() => {
+                if (hasNextPage && !isFetchingNextPage) {
+                  void fetchNextPage();
+                }
+              }}
+              renderItem={(m, _idx, a11y) => {
+                const rawProb = m.currentYesProb ?? m.initialYesProb;
+                return (
+                  <div {...a11y}>
+                    <MarketCard 
+                      href={`/markets/quick-view?marketId=${m.id}`}
+                      category={m.category}
+                      onChainMarketId={m.onChainMarketId}
+                      reasoningTraces={m.reasoningTraces}
+                      expiry={new Date(m.expiryTimestamp).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }).toUpperCase()}
+                      title={m.question}
+                      backendYesProb={Math.round(rawProb * 100)}
+                      backendLiquidity={`$${(m.totalLiquidity).toLocaleString()}`}
+                      disableEntrance
+                    />
+                  </div>
+                );
+              }}
+            />
+            {isFetchingNextPage && (
+              <div className="py-6 text-center text-on-surface-variant font-label-caps text-sm">
+                Loading more markets…
+              </div>
+            )}
           </div>
         )}
 

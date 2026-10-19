@@ -1,4 +1,5 @@
 "use client";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 import React from "react";
 import Link from "next/link";
@@ -73,7 +74,7 @@ export function AgentProfileCard({ profile }: AgentProfileCardProps) {
 
         <div className="p-3 bg-surface rounded border border-outline-variant/50 text-on-surface-variant text-xs">
           <p className="flex items-start gap-2">
-            <span className="material-symbols-outlined text-sm mt-0.5">info</span>
+            <Icon name="info" className="text-sm mt-0.5" />
             <span>{profile.eventWindowSize.note}</span>
           </p>
         </div>
@@ -87,9 +88,7 @@ export function AgentProfileCard({ profile }: AgentProfileCardProps) {
               <span className="font-label-caps text-label-caps text-on-surface-variant text-xs">
                 {metric.label}
               </span>
-              <span className="material-symbols-outlined text-on-surface-variant text-lg">
-                {metric.icon}
-              </span>
+              <Icon name={metric.icon as IconName} className="text-on-surface-variant text-lg" />
             </div>
             <div className="font-headline-sm text-headline-sm text-on-surface">
               {metric.value}
@@ -101,7 +100,7 @@ export function AgentProfileCard({ profile }: AgentProfileCardProps) {
       {/* Capital Deployed */}
       <div className="p-6 border border-outline-variant rounded-lg bg-surface-container-low">
         <h3 className="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center gap-2">
-          <span className="material-symbols-outlined">account_balance</span>
+          <Icon name="account_balance" />
           Capital Deployed
         </h3>
         <div className="font-display-sm text-display-sm text-primary">
@@ -118,7 +117,7 @@ export function AgentProfileCard({ profile }: AgentProfileCardProps) {
         <div className="p-6 border border-outline-variant rounded-lg bg-surface-container-low">
           <h3 className="font-label-caps text-label-caps text-on-surface-variant mb-4 flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <span className="material-symbols-outlined">history</span>
+              <Icon name="history" />
               Recent Reasoning Traces
             </span>
             <Link

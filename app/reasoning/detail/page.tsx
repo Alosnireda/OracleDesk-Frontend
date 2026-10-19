@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
@@ -86,21 +87,105 @@ function ReasoningTraceDetailContent() {
           )}
         </div>
 
-        {traceId && (
-          <div className="flex items-center gap-3">
-            <Link
-              href={`/reasoning/verify?traceId=${encodeURIComponent(traceId)}`}
-              className="px-4 py-2 bg-surface-container-low border border-outline text-on-surface rounded font-label-caps text-label-caps hover:bg-surface-variant transition-all flex items-center gap-1.5"
+        {/* Right Panel: Data Analysis & Actions */}
+        <div className="w-full md:w-[400px] flex flex-col bg-surface-container-low overflow-y-auto custom-scrollbar">
+          {/* Source Weighting Card */}
+          <div className="p-6 border-b border-outline-variant">
+            <h3 className="font-label-caps text-label-caps text-on-surface-variant mb-4 uppercase tracking-wider">
+              Source Weighting
+            </h3>
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded bg-white border border-outline-variant flex items-center justify-center">
+                  <Icon name="terminal" className="text-on-surface-variant" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between mb-1">
+                    <span className="font-body-md font-semibold">Macro Indicators</span>
+                    <span className="font-data-mono text-primary">0.92</span>
+                  </div>
+                  <div className="w-full h-1 bg-outline-variant rounded-full">
+                    <div className="h-1 bg-primary w-[92%]"></div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded bg-white border border-outline-variant flex items-center justify-center">
+                  <Icon name="public" className="text-on-surface-variant" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between mb-1">
+                    <span className="font-body-md font-semibold">Social Sentiment</span>
+                    <span className="font-data-mono text-primary">0.44</span>
+                  </div>
+                  <div className="w-full h-1 bg-outline-variant rounded-full">
+                    <div className="h-1 bg-primary w-[44%]"></div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded bg-white border border-outline-variant flex items-center justify-center">
+                  <Icon name="history_edu" className="text-on-surface-variant" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex justify-between mb-1">
+                    <span className="font-body-md font-semibold">Historical Bias</span>
+                    <span className="font-data-mono text-primary">0.78</span>
+                  </div>
+                  <div className="w-full h-1 bg-outline-variant rounded-full">
+                    <div className="h-1 bg-primary w-[78%]"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Confidence Interval Graph Area */}
+          <div className="p-6 flex-1">
+            <h3 className="font-label-caps text-label-caps text-on-surface-variant mb-4 uppercase tracking-wider">
+              Confidence Interval
+            </h3>
+            <div className="aspect-video w-full bg-white border border-outline-variant rounded-lg relative overflow-hidden flex items-end p-2 gap-1">
+              {/* Simulated Bar Chart */}
+              <div className="flex-1 bg-surface-container h-[20%] rounded-sm"></div>
+              <div className="flex-1 bg-surface-container h-[35%] rounded-sm"></div>
+              <div className="flex-1 bg-surface-container h-[50%] rounded-sm"></div>
+              <div className="flex-1 bg-surface-container h-[75%] rounded-sm"></div>
+              <div className="flex-1 bg-primary h-[90%] rounded-sm"></div>
+              <div className="flex-1 bg-surface-container h-[60%] rounded-sm"></div>
+              <div className="flex-1 bg-surface-container h-[40%] rounded-sm"></div>
+              <div className="flex-1 bg-surface-container h-[20%] rounded-sm"></div>
+              <div className="absolute inset-0 flex flex-col justify-center items-center pointer-events-none">
+                <span className="font-headline-md text-primary opacity-20 select-none">
+                  σ 2.4
+                </span>
+              </div>
+            </div>
+            <p className="font-label-caps text-[10px] text-on-surface-variant mt-3 uppercase tracking-widest text-center">
+              Projected Value Distribution
+            </p>
+          </div>
+
+          {/* Primary CTA Section */}
+          <div className="p-6 bg-white border-t border-outline-variant space-y-3 sticky bottom-0">
+            <div className="flex justify-between items-end mb-2">
+              <div>
+                <span className="font-label-caps text-on-surface-variant">CURRENT PRICE</span>
+                <div className="font-headline-md text-headline-md font-bold">0.68¢</div>
+              </div>
+              <div className="text-right">
+                <span className="font-label-caps text-secondary">POTENTIAL ROI</span>
+                <div className="font-headline-md text-headline-md font-bold text-secondary">
+                  +47.1%
+                </div>
+              </div>
+            </div>
+            <Link 
+              href="/copy-trade?traceId=TRD-7724&marketId=MKT-9204"
+              className="w-full bg-secondary text-primary-foreground font-headline-sm text-headline-sm py-4 rounded-xl flex items-center justify-center gap-3 hover:opacity-90 transition-opacity active:scale-[0.98] transform cursor-pointer"
             >
-              <span className="material-symbols-outlined text-sm">verified_user</span>
-              Verify On-Chain
-            </Link>
-            <Link
-              href={`/copy-trade?traceId=${encodeURIComponent(traceId)}&marketId=${encodeURIComponent(trace?.marketId ?? "")}`}
-              className="px-4 py-2 bg-primary text-white rounded font-label-caps text-label-caps hover:opacity-90 transition-all flex items-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-sm">bolt</span>
-              Copy Trade
+              <Icon name="bolt" filled />
+              Copy Trade (YES)
             </Link>
           </div>
         )}

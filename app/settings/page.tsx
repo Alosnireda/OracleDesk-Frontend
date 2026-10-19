@@ -1,4 +1,5 @@
 "use client";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 import React, { useState } from "react";
 import Link from "next/link";
@@ -9,11 +10,11 @@ import { MAX_SLIPPAGE_BPS, SLIPPAGE_PRESET_BPS, parseSlippagePercent } from "@/l
 import { NETWORK_LABEL } from "@/lib/stellar/config";
 import { shortAddress } from "@/lib/stellar/units";
 
-const SettingsSection = ({ title, icon, children, className = "" }: { title: string; icon: string; children: React.ReactNode; className?: string }) => (
+const SettingsSection = ({ title, icon, children, className = "" }: { title: string; icon: IconName; children: React.ReactNode; className?: string }) => (
   <section className={`bg-surface-container-lowest border border-outline-variant p-6 rounded-lg transition-all hover:shadow-sm ${className}`}>
     <div className="flex justify-between items-center mb-6">
       <h2 className="font-headline-sm text-headline-sm flex items-center gap-2">
-        <span className="material-symbols-outlined text-primary">{icon}</span>
+        <Icon name={icon} className="text-primary" />
         {title}
       </h2>
     </div>
@@ -76,7 +77,7 @@ export default function SettingsPage() {
             {isConnected && address ? (
               <div className="p-4 bg-surface-container-low border border-outline-variant rounded flex justify-between items-center">
                 <div className="flex items-center gap-3 min-w-0">
-                  <span className="material-symbols-outlined text-primary">account_balance_wallet</span>
+                  <Icon name="account_balance_wallet" className="text-primary" />
                   <div className="min-w-0">
                     <p className="font-label-caps text-label-caps text-on-surface-variant">Connected Wallet</p>
                     <p className="font-data-mono text-data-mono text-on-surface truncate" title={address}>
@@ -112,7 +113,7 @@ export default function SettingsPage() {
         <div className="md:col-span-5 space-y-8">
           <section className="bg-primary-container text-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-all">
             <h2 className="font-headline-sm text-headline-sm flex items-center gap-2 mb-6">
-              <span className="material-symbols-outlined">settings_input_component</span>
+              <Icon name="settings_input_component" />
               Trading Defaults
             </h2>
             <div className="space-y-6">

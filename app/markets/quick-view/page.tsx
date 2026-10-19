@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { Suspense, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,7 +13,7 @@ import { getMarketByOnChainId, getResolution } from "@/lib/api/markets";
 import { ApiError } from "@/lib/api/client";
 import { useOnChainMarket, usePosition } from "@/lib/hooks/useStellar";
 import { useWalletAddress } from "@/lib/contexts/WalletContext";
-import { useLedgerNow as useLedgerClock } from "@/lib/stellar/ledger-clock";
+import { ledgerClock, useLedgerNow as useLedgerClock } from "@/lib/stellar/ledger-clock";
 import { formatUsdc } from "@/lib/stellar/units";
 import { MIN_TX_TIMEOUT_S, SAFETY_MARGIN_S } from "@/lib/stellar/deadline";
 import { TradeTape } from "@/components/market/trade-tape";
@@ -77,9 +78,10 @@ function MarketQuickViewContent() {
   const yesProb = view ? Math.round(view.yesBps / 100) : backendProb;
   const noProb = 100 - yesProb;
   const chainStatus = view?.market.status;
-  const secondsToClose = ledger.now !== null && view ? Number(view.market.close_time - BigInt(Math.floor(ledger.now))) : null;
+  const nowLedgerTime = ledgerClock.estimateNow().time;
+  const secondsToClose = view ? Number(view.market.close_time) - nowLedgerTime : null;
   const countdown = secondsToClose !== null && secondsToClose >= 0 && secondsToClose < 3600 ? `Closes in ${Math.floor(secondsToClose / 60)}m ${secondsToClose % 60}s` : null;
-  const isOpen = chainStatus?.tag === "Open" && Number(view?.market.close_time ?? 0) * 1000 > chain.dataUpdatedAt;
+  const isOpen = chainStatus?.tag === "Open" && Number(view?.market.close_time ?? 0) > nowLedgerTime;
 
   const isLoading = backendById.isLoading || (backendByChainId.isLoading && !marketId) || (chain.isLoading && !market);
   const notFound = !market && !view;
@@ -95,7 +97,7 @@ function MarketQuickViewContent() {
   if (notFound) {
     return (
       <main className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-surface flex flex-col items-center justify-center p-6 text-center">
-        <span className="material-symbols-outlined text-error text-6xl mb-4">error</span>
+        <Icon name="error" className="text-error text-6xl mb-4" />
         <h2 className="text-headline-md mb-2">Market not found</h2>
         <p className="text-on-surface-variant mb-6">The market you are looking for does not exist or could not be loaded.</p>
         <Link href="/markets" className="bg-primary text-white px-6 py-2 rounded-lg font-label-caps uppercase">
@@ -172,7 +174,7 @@ function MarketQuickViewContent() {
                   aria-label="Close"
                   className="text-outline hover:text-on-surface transition-colors min-h-11 min-w-11 flex items-center justify-center"
                 >
-                  <span className="material-symbols-outlined">close</span>
+                  <Icon name="close" />
                 </Link>
               </div>
 
@@ -274,7 +276,7 @@ function MarketQuickViewContent() {
                 {/* AI Reasoning Snippet */}
                 <div className="bg-[#f0f9fa] border border-primary-container/20 p-4 rounded-lg space-y-2 relative overflow-hidden">
                   <div className="flex items-center gap-2 text-primary z-10 relative">
-                    <span className="material-symbols-outlined text-[18px]">psychology</span>
+                    <Icon name="psychology" className="text-[18px]" />
                     <span className="font-label-caps text-label-caps uppercase font-bold tracking-wider">Oracle AI Insights</span>
                   </div>
                   <p className="font-body-md text-body-md text-on-surface-variant italic z-10 relative leading-relaxed">
@@ -298,7 +300,7 @@ function MarketQuickViewContent() {
                     )}
                   </div>
                   <div className="absolute right-0 bottom-0 opacity-5 translate-x-4 translate-y-4">
-                    <span className="material-symbols-outlined text-6xl">neurology</span>
+                    <Icon name="neurology" className="text-6xl" />
                   </div>
                 </div>
               </div>

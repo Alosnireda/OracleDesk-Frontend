@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { Suspense, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -267,8 +268,8 @@ function VerifyTraceContent() {
         >
           <div className="p-6 border-b border-outline-variant flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container-low shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-on-primary-container" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+              <div className="w-10 h-10 rounded-lg bg-primary-container flex items-center justify-center">
+                <Icon name="verified_user" filled className="text-on-primary-container" />
               </div>
               <div>
                 <h2 className="font-headline-sm text-headline-sm text-on-surface">

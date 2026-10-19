@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -121,9 +122,7 @@ export function TraceHistoryViewer({
               </div>
 
               <div className="text-on-surface-variant">
-                <span className="material-symbols-outlined">
-                  {expandedDiff === idx ? "expand_less" : "expand_more"}
-                </span>
+                <Icon name={expandedDiff === idx ? "expand_less" : "expand_more"} />
               </div>
             </button>
 
@@ -142,7 +141,7 @@ export function TraceHistoryViewer({
                     diff.sourceDiff.modified.length > 0) && (
                     <div>
                       <h4 className="font-label-caps text-label-caps text-on-surface-variant mb-3 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-base">analytics</span>
+                        <Icon name="analytics" className="text-base" />
                         Source Changes
                       </h4>
                       <div className="space-y-2 text-sm">
