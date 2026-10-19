@@ -28,3 +28,6 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+      - name: No production links to retired demo routes
+        run: node scripts/check-demo-links.mjs

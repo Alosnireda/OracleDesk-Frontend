@@ -10,6 +10,7 @@ The frontend has two sources that can disagree, and it says which one a value ca
 | Question text, category, reasoning traces (metadata), subscriptions, platform counts | **Backend** (`lib/api/*`, `docs/api.md`) | Not stored on-chain in readable form. |
 | Trace content | **IPFS**, then hash-checked against `reasoning_registry.get_trace` | Gateways are not authenticated; content is shown only if its sha256 matches the chain (`lib/stellar/trace.ts`). |
 | Per-market trade tape | **Chain** `Trade` events, extended by validated socket events | Contract-spec topic filters select one market. Backward ledger windows with forward cursor pagination find the newest rows; RPC retention limits history. Socket copies are replaced by decoded RPC copies on refetch. |
+| Per-market price history | **Chain** market-core `getEvents`, decoded and bucketed client-side (`lib/stellar/price-history.ts`, `lib/charts/*`) | Event retention bounds history; the chart shows coverage and the retention reason explicitly. Decoded points cache in IndexedDB per market (32-entry in-memory fallback when storage is unavailable). |
 | Wallet inbox | **IndexedDB**, populated from validated own-wallet events and the transaction tracker | Scoped by address and network passphrase. It contains no agent portfolio data. Resolution/redemption events are polled every 60 seconds while visible; current contract status catches resolutions outside retention. |
 
 A backend market links to the chain through `onChainMarketId` (market-core's `u64` id, a decimal string in JSON). On-chain markets the backend doesn't know are still listed on `/markets`, with on-chain data only.
@@ -67,6 +68,12 @@ All contract results must be read through `read(tx, contract)` for simulations a
 
 USDC has 7 decimals. Anything that can reach a transaction is a `bigint` in base units (`lib/stellar/units.ts`). Parsing rejects floats in exponent form and more than 7 decimals. Display floats exist only at the edge of the UI.
 
+## Market price chart
+
+`/market` shows a real step-line YES-price chart for the market in `?onChainId=` (Suspense-wrapped `useSearchParams`). `loadPriceHistory` (`lib/stellar/price-history.ts`) pages `getEvents` newest-first (1,000 per page, 20 pages max), clamps the window to RPC retention, decodes `Trade` events into `{ price, reserves, timestamp }` points with the pinned FPMM math, and caches serialized points in IndexedDB per market. `usePriceHistory` refetches every 15 seconds while the tab is visible.
+
+Points bucket on a worker (`lib/charts/bucket.worker.ts`) into fixed widths per period (1H→5m, 1D→30m, 1W→6h); the fallback path buckets on the main thread when workers are unavailable. The chart renders only after a mount frame so `ResponsiveContainer` always has a measured width (this is what removed the `width(-1)` warning class). Chart colors come from CSS variables (`--chart-yes`, `--chart-no`, …), never hex literals in components.
+
 ## Errors
 
 `lib/stellar/errors.ts` turns SDK, wallet and contract failures into plain sentences. Contract errors are named from the `Error(Contract, #N)` code through each binding's `Errors` table. Wallet rejection, insufficient USDC and a missing USDC trustline are matched first, because token errors raised inside `market_core.buy` carry the token contract's own codes, which overlap with market-core's.
@@ -85,4 +92,22 @@ All routes prerender as static pages. Pages that read query parameters (`/market
 
 The market tape retains at most 2,000 trades per market and 32 cached markets. A fixed eight-row viewport with overscan renders at most 24 data rows plus spacer rows. USDC, shares and fees remain bigint base units; post-trade price uses the pinned FPMM calculation. Each row links to its trader and transaction. Event retention is shown explicitly, including empty histories.
 
+The home hero shows the most liquid ACTIVE market from the markets feed (`pickFeaturedMarket`, deterministic — same list, same market); the ticker formats the same feed through `tickerItems`. No home-page number is invented: no random probability walk, no placeholder volume, no fabricated insight quote.
+
+`/reasoning` renders `useInfiniteTraces` pages merged by `mergeTracePages` (id-deduplicated); an IntersectionObserver sentinel loads the next page with an explicit button fallback. `listTraces` narrows response `meta` through `isPaginationMeta`, because older deployments omit pagination meta — the feed simply stops after page one there. Trace cards render only the preview sources the backend actually sent; locked traces say so instead of showing fallback synthesis or invented source-weighting numbers.
+
 `InboxProvider` remounts for each address/network pair, closes its previous database handle, and renders nothing from the previous owner. `oracledesk-inbox` stores deterministic item IDs, read state and the last processed ledger. Duplicate deliveries preserve read state and creation time. The inbox retains 500 items, pruning oldest read items first, and displays the newest 200. Storage failures fall back to memory with a visible notice. Reading a page does not mark anything read; the user explicitly marks one item or all items. Held-market discovery uses the owner's saved fills and already-read position queries; it does not scan all ledger keys or use the treasury agent's portfolio.
+
+## RPC endpoints
+
+`RPC_URLS` = `NEXT_PUBLIC_STELLAR_RPC_URL` (primary) + `NEXT_PUBLIC_STELLAR_RPC_URLS`. `lib/stellar/rpc-pool.ts` verifies each endpoint with `getNetwork` (wrong passphrase → never used), probes `getLatestLedger` every 15 s while the tab is visible, and keeps the last 50 samples per endpoint (p50/p95, error rate, 429s with Retry-After back-off, ledger lag). Selection is sticky: it switches only when another endpoint scores ≥30% better on two consecutive probes, or the current one is down/degraded. Write hooks run inside `withPinnedRpc`, so quote, simulate, submit and polling use one endpoint; a failed submission is never resent elsewhere. Reads carry the ledger they were simulated at (quick-view shows "as of ledger N") and an older-ledger result never replaces newer cached data. Single-endpoint setups behave as before.
+
+## PWA and service worker
+
+`public/sw.js` (hand-written) is registered as `/sw.js?v=<BUILD_ID>` in production on secure origins only; `next dev` unregisters build workers.
+
+Cached (namespace `shell-<BUILD_ID>`): prerendered route HTML (network-first, 4 s timeout, then cached HTML, then `/offline`) and `/_next/static/**`, `/icons/**`, `/favicon.ico` (cache-first). The list comes from `/_next/static/sw/precache-<BUILD_ID>.json`, written by `scripts/build-sw-manifest.mjs` after `next build` from `.next/BUILD_ID`, `.next/prerender-manifest.json` and every file under `.next/static/` (including lazily loaded wallet-kit chunks).
+
+Never cached or intercepted: any other origin (backend, Soroban RPC, socket.io, IPFS, x402, wallets), requests with `Authorization` or `Range`, non-GET, `/api/`, `/socket.io`.
+
+Update rule: the worker never calls `skipWaiting()` itself. When a new one is waiting, a non-dismissable banner asks the user to reload, and `useWriteGuard` refuses to sign ("Reload to update OracleDesk before signing.") until they do.

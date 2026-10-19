@@ -12,7 +12,16 @@ import type { Market, MarketStatus, MarketTracePreview } from "@/lib/api/markets
 import { BACKEND_CATEGORIES, BACKEND_CATEGORY_LABELS } from "@/lib/stellar/categories";
 import { formatUsdc } from "@/lib/stellar/units";
 import { NETWORK_LABEL } from "@/lib/stellar/config";
-import { SourceTag } from "@/components/ui/source-tag";
+
+/** Where a displayed value came from, wherever backend and chain can disagree. */
+const SourceTag = ({ source }: { source: "chain" | "backend" }) => (
+  <span
+    title={source === "chain" ? "Read live from the market contract" : "OracleDesk backend estimate; may lag the chain"}
+    className={`ml-1 text-[9px] font-bold uppercase px-1 rounded ${source === "chain" ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-highest text-on-surface-variant"}`}
+  >
+    {source}
+  </span>
+);
 
 function chainStatusLabel(view: OnChainMarketView | undefined): string {
   if (!view) return "—";
@@ -70,7 +79,10 @@ const FilterBar = ({
               Resolved
             </button>
           </div>
-          <span className="font-data-mono text-label-caps text-on-surface-variant uppercase">{NETWORK_LABEL}</span>
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-secondary animate-pulse motion-reduce:animate-none"></span>
+            <span className="font-data-mono text-label-caps text-secondary uppercase">{NETWORK_LABEL}</span>
+          </div>
         </div>
       </div>
     </section>
@@ -268,7 +280,7 @@ function OnChainOnlyMarkets({ knownIds }: { knownIds: Set<string> }) {
 export default function Markets() {
   const [status, setStatus] = useState<MarketStatus>("ACTIVE");
   const [category, setCategory] = useState<string>("");
-  const { data, isLoading, error } = useMarkets({ 
+  const { data, isLoading, error, refetch, isFetching } = useMarkets({ 
     status, 
     category: (category || undefined) as Market["category"] | undefined,
   });
@@ -298,11 +310,15 @@ export default function Markets() {
             <p className="text-on-surface-variant/70 text-sm mt-2">
               {error instanceof Error ? error.message : "Please check if the backend is running and accessible."}
             </p>
+            {typeof navigator !== "undefined" && navigator.onLine === false && (
+              <p className="text-on-surface-variant text-sm mt-2">You appear to be offline. Reconnect, then retry.</p>
+            )}
             <button 
-              onClick={() => window.location.reload()}
-              className="mt-6 px-4 py-2 bg-primary text-white rounded-lg font-label-caps text-label-caps"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              className="mt-6 px-4 py-2 bg-primary text-white rounded-lg font-label-caps text-label-caps disabled:opacity-60"
             >
-              Retry Connection
+              {isFetching ? "Retrying…" : "Retry Connection"}
             </button>
           </div>
         ) : marketsData.length === 0 ? (

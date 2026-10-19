@@ -14,13 +14,15 @@ import { ApiError } from "@/lib/api/client";
 import { useMarket } from "@/lib/hooks/useMarkets";
 import { useBuy, useQuoteBuy, useUsdcBalance, useAccountReserve, usePrepareBuy, useOnChainMarket, fetchOnChainMarket, useUsdcTrustline, useEnableUsdc, useUsdcBalanceState, type PreparedWriteReview } from "@/lib/hooks/useStellar";
 import { explorerTx } from "@/lib/stellar/config";
-import { formatUsdc, formatXlm, minOut, shareOf } from "@/lib/stellar/units";
+import { formatUsdc, formatXlm, minOut, shareOf, bpsToPercent } from "@/lib/stellar/units";
 import { TxPhase } from "@/lib/stellar/tx-lifecycle";
 
 /** Wait this long after the slider stops before asking for a new quote. */
 import { getLedgerNow, useLedgerNow } from "@/lib/stellar/ledger-clock";
 import { MIN_TX_TIMEOUT_S, SAFETY_MARGIN_S } from "@/lib/stellar/deadline";
 import { PendingValue } from "@/components/pending-value";
+import { SLIPPAGE_PRESET_BPS } from "@/lib/settings/settings";
+import { useSettings } from "@/lib/settings/useSettings";
 const QUOTE_DEBOUNCE_MS = 400;
 
 function renderTxPhase(phase: TxPhase): string | null {
@@ -81,7 +83,10 @@ function CopyTradeContent() {
 
   // Allocation as a share of the wallet's USDC balance, in basis points.
   const [allocationBps, setAllocationBps] = useState(1250);
-  const [slippage, setSlippage] = useState(1.0);
+  // Slippage starts from the saved default (/settings); the picker below is a
+  // per-trade override that never writes back to settings.
+  const { settings } = useSettings(address);
+  const [slippageOverrideBps, setSlippageOverrideBps] = useState<number | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reviewModel, setReviewModel] = useState<{ model: ReviewModel; changedFrom?: ReviewModel } | null>(null);
@@ -125,7 +130,7 @@ function CopyTradeContent() {
     (submitQueue.lockWaiting && submitQueue.running?.label === buyLabel);
   const allocation = allocationBps / 100;
   const amountRaw = balance.data !== undefined ? shareOf(balance.data, allocationBps) : null;
-  const slippageBps = Math.round(slippage * 100);
+  const slippageBps = slippageOverrideBps ?? settings.slippageBps;
 
   const debouncedAmount = useDebounced(amountRaw, QUOTE_DEBOUNCE_MS);
   const quote = useQuoteBuy(onChainMarketId, side ?? "Yes", side ? debouncedAmount : null);
@@ -411,24 +416,31 @@ function CopyTradeContent() {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-outline text-sm">settings</span>
-                  <span className="font-label-caps text-label-caps text-on-surface-variant uppercase text-[10px]">Slippage Tolerance</span>
+                  <span className="font-label-caps text-label-caps text-on-surface-variant uppercase text-[10px]">
+                    Slippage Tolerance ({bpsToPercent(slippageBps)})
+                  </span>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
-                  {[0.5, 1.0, 3.0].map((val) => (
+                  {SLIPPAGE_PRESET_BPS.map((bps) => (
                     <button
-                      key={val}
-                      onClick={() => setSlippage(val)}
+                      key={bps}
+                      onClick={() => setSlippageOverrideBps(bps)}
                       className={`flex-1 sm:flex-none px-3 py-1 text-[11px] font-bold border rounded transition-all ${
-                        slippage === val
+                        slippageBps === bps
                           ? "border-primary border-2 bg-white text-primary"
                           : "border-outline-variant bg-white hover:border-primary text-on-surface-variant"
                       }`}
                     >
-                      {val}%
+                      {bpsToPercent(bps)}
                     </button>
                   ))}
                 </div>
               </div>
+              {slippageOverrideBps === null && (
+                <p className="text-[11px] text-on-surface-variant">
+                  Using your default from Settings. Pick a value above to override it for this trade only.
+                </p>
+              )}
               <div className="pt-4 border-t border-outline-variant flex justify-between items-center gap-3">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-outline text-sm">query_stats</span>

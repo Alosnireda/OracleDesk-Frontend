@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { Contract, Keypair, nativeToScVal, xdr, type rpc } from "@stellar/stellar-sdk";
 import { CONTRACTS } from "../config";
-import { decodeTrade, fetchMarketTrades, tradeTopicFilter, mergeTrades } from "../events";
+import { decodeTrade, decodeMarketCoreEvent, eventTopicFilter, fetchMarketTrades, marketTopicFilter, tradeTopicFilter, mergeTrades } from "../events";
 import { marketCore } from "../clients";
 import { priceYesBps } from "../generated/fpmm";
+import rawFixtures from "./fixtures/market-core-events.json";
 
 const trader = Keypair.fromRawEd25519Seed(Buffer.alloc(32, 1)).publicKey();
 export function tradeFixture(ledger = 100, index = 1): rpc.Api.EventResponse {
@@ -52,5 +53,76 @@ describe("market contract events", () => {
     const socket = { ...row, origin: "socket" as const, reserveYes: null, reserveNo: null };
     const merged = mergeTrades([socket], [row, decodeTrade(tradeFixture(100, 2))!]);
     expect(merged).toHaveLength(2); expect(merged.every(row => row.origin === "rpc")).toBe(true);
+  });
+});
+
+interface RawFixture {
+  name: string; ledger: number; index: number; ledgerClosedAt: string; txHash: string;
+  topics: string[]; value: string; trader: string;
+}
+const fixtures = rawFixtures as RawFixture[];
+
+function fixtureResponse(fixture: RawFixture, overrides: Partial<rpc.Api.EventResponse> = {}): rpc.Api.EventResponse {
+  return {
+    id: `${String(fixture.ledger).padStart(19, "0")}-${String(fixture.index).padStart(10, "0")}`,
+    type: "contract", ledger: fixture.ledger, ledgerClosedAt: fixture.ledgerClosedAt,
+    contractId: new Contract(CONTRACTS.marketCore), transactionIndex: 1, operationIndex: 0,
+    inSuccessfulContractCall: true, txHash: fixture.txHash,
+    topic: fixture.topics.map(topic => xdr.ScVal.fromXDR(topic, "base64")),
+    value: xdr.ScVal.fromXDR(fixture.value, "base64"),
+    ...overrides,
+  };
+}
+
+describe("typed market-core event decoding", () => {
+  it("decodes MarketCreated from recorded XDR into the seeded price inputs", () => {
+    const decoded = decodeMarketCoreEvent(fixtureResponse(fixtures[0]));
+    expect(decoded).toMatchObject({
+      kind: "MarketCreated", marketId: 7n, closeTime: 2_000_000_000n,
+      seedAmount: 100_000_000n, initialYesBps: 6000,
+      meta: { ledger: 100, ledgerClosedAt: fixtures[0].ledgerClosedAt, txHash: fixtures[0].txHash },
+    });
+    expect(decoded?.kind === "MarketCreated" && decoded.creator).toBe(fixtures[0].trader);
+  });
+
+  it("decodes a Trade with exact bigint reserves and derives the same price as priceYesBps", () => {
+    const decoded = decodeMarketCoreEvent(fixtureResponse(fixtures[1]));
+    expect(decoded).toMatchObject({
+      kind: "Trade", marketId: 7n, trader: fixtures[1].trader, outcome: "Yes", isBuy: true,
+      collateral: 50_000_000n, shares: 73_529_411n, fee: 12_500n,
+      reserveYes: 150_000_000n, reserveNo: 100_000_000n,
+    });
+    expect(decoded?.kind).toBe("Trade");
+    expect(priceYesBps(150_000_000n, 100_000_000n)).toBe(4000n);
+  });
+
+  it("decodes resolutions, including the void case as null", () => {
+    expect(decodeMarketCoreEvent(fixtureResponse(fixtures[2]))).toMatchObject({ kind: "MarketResolved", outcome: "Yes" });
+    expect(decodeMarketCoreEvent(fixtureResponse(fixtures[3]))).toMatchObject({ kind: "MarketResolved", outcome: null });
+  });
+
+  it("decodes Redeemed", () => {
+    expect(decodeMarketCoreEvent(fixtureResponse(fixtures[4]))).toMatchObject({
+      kind: "Redeemed", marketId: 7n, holder: fixtures[4].trader, payout: 73_529_411n,
+    });
+  });
+
+  it("returns null for other contracts, failed calls and malformed payloads", () => {
+    expect(decodeMarketCoreEvent(fixtureResponse(fixtures[1], { inSuccessfulContractCall: false }))).toBeNull();
+    const wrongContract = fixtureResponse(fixtures[1], { contractId: new Contract(CONTRACTS.treasury) });
+    expect(decodeMarketCoreEvent(wrongContract)).toBeNull();
+    const truncated = fixtureResponse(fixtures[1]);
+    truncated.value = xdr.ScVal.scvMap([]);
+    expect(decodeMarketCoreEvent(truncated)).toBeNull();
+  });
+
+  it("builds market-scoped RPC filters for every price-relevant event", () => {
+    const filters = marketTopicFilter(7n, ["MarketCreated", "Trade", "MarketResolved"]);
+    expect(filters).toHaveLength(3);
+    const [created, trade, resolved] = filters.map(filter => filter.topics?.[0]);
+    expect(filters[0].contractIds).toEqual([CONTRACTS.marketCore]);
+    expect(created).toEqual(eventTopicFilter("MarketCreated", { market_id: 7n }));
+    expect(trade).toEqual(tradeTopicFilter(7n));
+    expect(resolved).toEqual(eventTopicFilter("MarketResolved", { market_id: 7n }));
   });
 });

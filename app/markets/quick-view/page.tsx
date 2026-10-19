@@ -13,11 +13,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useMarket } from "@/lib/hooks/useMarkets";
 import { getMarketByOnChainId } from "@/lib/api/markets";
 import { ApiError } from "@/lib/api/client";
-import { useBuy, useOnChainMarket, usePosition, useQuoteBuy, useUsdcBalance, useAccountReserve, usePrepareBuy, useMarketConfig, useLedgerNow, useEnableUsdc, useUsdcTrustline, useExactBuyQuote, usePositionState, useUsdcBalanceState } from "@/lib/hooks/useStellar";
+import { useBuy, useOnChainMarket, usePosition, useQuoteBuy, useUsdcBalance, useAccountReserve, usePrepareBuy, useMarketConfig, useLedgerNow, useEnableUsdc, useUsdcTrustline, useExactBuyQuote, usePositionState, useUsdcBalanceState, useAccountAuth, usePrepareMultisig } from "@/lib/hooks/useStellar";
 import { useWallet } from "@/lib/contexts/WalletContext";
 import { explorerTx } from "@/lib/stellar/config";
-import { formatUsdc, formatXlm, maxIn, minOut, tryParseUsdc } from "@/lib/stellar/units";
+import { formatUsdc, formatXlm, bpsToPercent, maxIn, minOut, tryParseUsdc } from "@/lib/stellar/units";
 import { buyBreakdown } from "@/lib/stellar/buy-breakdown";
+import { isMultisigAccount, MULTISIG_DEFAULT_SLIPPAGE_BPS, type MultisigSession } from "@/lib/stellar/multisig";
+import { MultisigReview } from "@/components/multisig-review";
+import { useSettings } from "@/lib/settings/useSettings";
 
 import type { TxPhase } from "@/lib/stellar/tx-lifecycle";
 import { preflightBuy } from "@/lib/stellar/preflight";
@@ -25,13 +28,16 @@ import { useLedgerNow as useLedgerClock } from "@/lib/stellar/ledger-clock";
 import { MIN_TX_TIMEOUT_S, SAFETY_MARGIN_S } from "@/lib/stellar/deadline";
 import { TradeTape } from "@/components/market/trade-tape";
 import { PendingValue } from "@/components/pending-value";
-import { SourceTag } from "@/components/ui/source-tag";
-import { isStale } from "@/lib/stellar/health";
-import { useHealth } from "@/lib/health/HealthProvider";
+import { PushVerifiedStatus } from "@/components/push-verified-status";
 
-const SLIPPAGE_BPS = 100; // 1%
-/** A chain read older than this must be refreshed before a trade is signed. */
-const MARKET_STALE_AFTER_SEC = 60;
+const SourceTag = ({ source }: { source: "chain" | "backend" }) => (
+  <span
+    title={source === "chain" ? "Read live from the market contract" : "OracleDesk backend estimate; may lag the chain"}
+    className={`ml-1 text-[9px] font-bold uppercase px-1 rounded ${source === "chain" ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-highest text-on-surface-variant"}`}
+  >
+    {source}
+  </span>
+);
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -82,6 +88,7 @@ function MarketQuickViewContent() {
   const marketId = searchParams.get("marketId");
   const onChainIdParam = searchParams.get("onChainId");
   const initialSide = searchParams.get("side") === "NO" ? "No" : "Yes";
+  const fromPush = searchParams.get("from") === "push";
 
   const backendById = useMarket(marketId ?? undefined);
   // Opened from an on-chain id: the backend may or may not know this market.
@@ -96,7 +103,10 @@ function MarketQuickViewContent() {
   const chain = useOnChainMarket(onChainMarketId);
 
   const { address, isConnected, isWrongNetwork, openModal } = useWallet();
-  const health = useHealth();
+  // Saved in /settings; useSyncExternalStore makes it available before the
+  // first visible quote even though pages are statically prerendered.
+  const { settings } = useSettings(address);
+  const slippageBps = settings.slippageBps;
   const position = usePosition(onChainMarketId, address);
   const balance = useUsdcBalance(address);
   const reserve = useAccountReserve(address);
@@ -111,6 +121,12 @@ function MarketQuickViewContent() {
   const trustlineUnauthorized = trustline.data?.kind === "present" && !trustline.data.authorized;
   const buy = useBuy();
   const submitQueue = useSubmitQueueState(address);
+  const accountAuth = useAccountAuth(address);
+  const isMultisig = accountAuth.data ? isMultisigAccount(accountAuth.data) : false;
+  const [multisigMode, setMultisigMode] = useState(false);
+  const [multisigSession, setMultisigSession] = useState<MultisigSession | null>(null);
+  const [multisigStatus, setMultisigStatus] = useState<string | null>(null);
+  const prepareMultisig = usePrepareMultisig();
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
@@ -129,7 +145,7 @@ function MarketQuickViewContent() {
   const exactQuote = useExactBuyQuote(onChainMarketId, side, buyMode === "shares" ? debouncedAmount : null);
   const spendRaw = buyMode === "shares" ? exactQuote.data?.collateralIn ?? null : amountRaw;
   const quote = useQuoteBuy(onChainMarketId, side, buyMode === "usdc" ? debouncedAmount : spendRaw);
-  const prepareBuy = usePrepareBuy({ marketId: onChainMarketId, outcome: side, collateralIn: spendRaw, slippageBps: SLIPPAGE_BPS, holder: address });
+  const prepareBuy = usePrepareBuy({ marketId: onChainMarketId, outcome: side, collateralIn: spendRaw, slippageBps, holder: address });
   const fees = prepareBuy.data?.fees;
   const isUnfunded = reserve.data?.funded === false;
   const isInsufficientXlm = !!(reserve.data?.funded && fees && fees.totalFee > reserve.data.spendable);
@@ -238,7 +254,7 @@ function MarketQuickViewContent() {
         outcome: side,
         collateralIn: spendRaw ?? 0n,
         review,
-        slippageBps: SLIPPAGE_BPS,
+        slippageBps,
         prepared: prepareBuy.data,
       });
       setBuyStatus(
@@ -260,6 +276,41 @@ function MarketQuickViewContent() {
     }
   };
 
+  const handlePrepareMultisig = async () => {
+    if (!isConnected) {
+      void openModal();
+      return;
+    }
+    if (!onChainMarketId) return;
+    if (isWrongNetwork) {
+      setMultisigStatus("Switch your wallet to Stellar Testnet to prepare this trade.");
+      return;
+    }
+    if (!spendRaw || spendRaw <= 0n) {
+      setMultisigStatus(buyMode === "usdc" ? "Enter an amount like 10 or 2.5." : "Enter a share amount greater than zero.");
+      return;
+    }
+    if (buyMode === "shares") {
+      setMultisigStatus("Multisig prepare currently supports USDC amounts. Switch to USDC and try again.");
+      return;
+    }
+    setMultisigStatus(null);
+    try {
+      const session = await prepareMultisig.mutateAsync({
+        kind: "buy",
+        marketId: onChainMarketId,
+        outcome: side,
+        collateralIn: spendRaw,
+        slippageBps: MULTISIG_DEFAULT_SLIPPAGE_BPS,
+        sourceAccount: address ?? undefined,
+        timeoutInSeconds: 3600,
+      });
+      setMultisigSession(session);
+    } catch (err) {
+      setMultisigStatus(err instanceof Error ? err.message : "Couldn't prepare the multisig transaction.");
+    }
+  };
+
   if (isLoading) {
     return (
       <main className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-surface flex items-center justify-center">
@@ -272,10 +323,10 @@ function MarketQuickViewContent() {
     return (
       <main className="relative min-h-[calc(100vh-64px)] overflow-hidden bg-surface flex flex-col items-center justify-center p-6 text-center">
         <span className="material-symbols-outlined text-error text-6xl mb-4">error</span>
-        <h2 className="text-headline-md mb-2">Market Not Found</h2>
+        <h2 className="text-headline-md mb-2">Market not found</h2>
         <p className="text-on-surface-variant mb-6">The market you are looking for does not exist or could not be loaded.</p>
-        <Link href="/markets" className="bg-primary text-white px-6 py-2 rounded-lg font-label-caps">
-          BACK TO MARKETS
+        <Link href="/markets" className="bg-primary text-white px-6 py-2 rounded-lg font-label-caps uppercase">
+          Back to markets
         </Link>
       </main>
     );
@@ -339,7 +390,7 @@ function MarketQuickViewContent() {
                 <Link 
                   href="/markets"
                   aria-label="Close"
-                  className="text-outline hover:text-on-surface transition-colors p-1"
+                  className="text-outline hover:text-on-surface transition-colors min-h-11 min-w-11 flex items-center justify-center"
                 >
                   <span className="material-symbols-outlined">close</span>
                 </Link>
@@ -354,6 +405,7 @@ function MarketQuickViewContent() {
                   </h2>
                 </div>
 
+                {fromPush && view && <PushVerifiedStatus marketId={view.id} market={view.market} position={position.data ?? null} />}
                 {/* 24h Performance & Stats */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
                   <div className="space-y-1">
@@ -362,6 +414,9 @@ function MarketQuickViewContent() {
                       <SourceTag source={fromChain ? "chain" : "backend"} ledger={view?.ledger} readAt={fromChain ? chain.dataUpdatedAt : undefined} />
                     </div>
                     <p className="font-label-caps text-label-caps text-outline uppercase font-bold tracking-wider">YES price</p>
+                    {view?.ledger != null && (
+                      <p className="text-[11px] text-outline font-data-mono">as of ledger {view.ledger.toLocaleString()}</p>
+                    )}
                   </div>
                   {/* Sparkline Simulation */}
                   <div className="h-16 relative w-full" aria-hidden="true" title="Illustration; price history isn't indexed yet">
@@ -455,13 +510,13 @@ function MarketQuickViewContent() {
                         {amountRaw === null
                           ? buyMode === "usdc" ? "Enter an amount like 10 or 2.5" : "Enter a share amount"
                           : buyMode === "shares" && exactQuote.data
-                            ? `Costs ≈ ${formatUsdc(exactQuote.data.collateralIn, { maxDecimals: 2 })} USDC (fee ${formatUsdc(exactQuote.data.fee, { maxDecimals: 2 })}), at most ${formatUsdc(maxIn(exactQuote.data.collateralIn, SLIPPAGE_BPS), { maxDecimals: 2 })} with 1% slippage`
+                            ? `Costs ≈ ${formatUsdc(exactQuote.data.collateralIn, { maxDecimals: 2 })} USDC (fee ${formatUsdc(exactQuote.data.fee, { maxDecimals: 2 })}), at most ${formatUsdc(maxIn(exactQuote.data.collateralIn, slippageBps), { maxDecimals: 2 })} with ${bpsToPercent(slippageBps)} slippage`
                             : buyMode === "shares" && exactQuote.error
                               ? exactQuote.error.message
                               : buyMode === "shares" && exactQuote.isFetching
                                 ? "Quoting exact share amount…"
                                 : quote.data !== undefined
-                            ? `≈ ${formatUsdc(quote.data, { maxDecimals: 2 })} shares, at least ${formatUsdc(minOut(quote.data, SLIPPAGE_BPS), { maxDecimals: 2 })} (1% slippage)`
+                            ? `≈ ${formatUsdc(quote.data, { maxDecimals: 2 })} shares, at least ${formatUsdc(minOut(quote.data, slippageBps), { maxDecimals: 2 })} (${bpsToPercent(slippageBps)} slippage)`
                             : quote.error ? quote.error.message : quote.isFetching ? "Quoting…" : ""}
                       </span>
                       {balance.data !== undefined && <span>Balance {formatUsdc(balance.data, { maxDecimals: 2, grouping: true })}<PendingValue state={balanceState.data} /></span>}
@@ -549,6 +604,42 @@ function MarketQuickViewContent() {
                     {!buy.isPending && buyStatus && (
                       <p className="text-xs text-on-surface-variant break-all" role="status">{buyStatus}</p>
                     )}
+
+                    {/* Multisig path */}
+                    {isConnected && (
+                      <div className="rounded-lg border border-outline-variant bg-surface-container-low p-3 space-y-2">
+                        <label className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={multisigMode}
+                            onChange={(e) => setMultisigMode(e.target.checked)}
+                          />
+                          Use multisig (export XDR for co-signers)
+                        </label>
+                        {accountAuth.isLoading && <p className="text-[11px] text-on-surface-variant">Checking multisig thresholds…</p>}
+                        {isMultisig && !multisigMode && (
+                          <p className="text-[11px] text-on-surface-variant">
+                            This account needs multiple signatures (medium threshold {accountAuth.data?.med}, {accountAuth.data?.signers.length} signers). For treasuries, use “Prepare for multisig”.
+                          </p>
+                        )}
+                        {(multisigMode || isMultisig) && (
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={handlePrepareMultisig}
+                              disabled={prepareMultisig.isPending || !spendRaw || spendRaw <= 0n}
+                              className="bg-surface-container px-3 py-2 rounded-lg text-xs font-bold border border-outline-variant disabled:opacity-50"
+                            >
+                              {prepareMultisig.isPending ? "Preparing…" : "Prepare for multisig"}
+                            </button>
+                            <p className="text-[11px] text-on-surface-variant">
+                              Builds with a 1-hour window and 3% slippage. Quote is from the current ledger; the trade fails with SlippageExceeded (error 12) if the price moves further.
+                            </p>
+                            {multisigStatus && <p className="text-xs text-on-surface-variant" role="status">{multisigStatus}</p>}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -597,6 +688,13 @@ function MarketQuickViewContent() {
           changedFrom={reviewModel.changedFrom}
           onConfirm={() => closeReview(true)}
           onCancel={() => closeReview(false)}
+        />
+      )}
+      {multisigSession && (
+        <MultisigReview
+          session={multisigSession}
+          onClose={() => setMultisigSession(null)}
+          onUpdated={(next) => setMultisigSession(next)}
         />
       )}
     </main>

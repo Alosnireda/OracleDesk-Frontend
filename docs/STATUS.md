@@ -1,6 +1,34 @@
 # Status
 
-Last updated: 2026-10-18. The latest issue verification is below; the original Stellar port record follows it. "Verified" means a command was run and its output observed in the session that wrote this file. The backend's [docs/STATUS.md](https://github.com/OracleDesk/OracleDesk-Backend/blob/main/docs/STATUS.md) covers the server side.
+Last updated: 2026-10-19. The latest issue verification is below; the original Stellar port record follows it. "Verified" means a command was run and its output observed in the session that wrote this file. The backend's [docs/STATUS.md](https://github.com/OracleDesk/OracleDesk-Backend/blob/main/docs/STATUS.md) covers the server side.
+
+## Chart, home page and reasoning-feed issues #51–#54 (2026-10-19)
+
+- #53: typed `getEvents` decoding for market-core, `loadPriceHistory` (retention-clamped
+  pagination, IndexedDB + bounded in-memory cache) and `usePriceHistory`.
+- #54: real step-line `PriceChart` on `/market?onChainId=…` — worker-bucketed points,
+  mount-frame guard (removed the Recharts `width(-1)` warnings), CSS-variable colors.
+- #51: home hero shows the most liquid ACTIVE market (deterministic `pickFeaturedMarket`),
+  real ticker formatting, honest CTA copy; removed the random probability walk, the
+  placeholder volume/liquidity tiles, the invented insight quote and the fabricated
+  equity-curve card (labelled demo positions remain).
+- #52: `/reasoning` renders only real data — fabricated terminal sidebar, TPS badge,
+  fallback synthesis and invented source-weighting defaults are gone; the feed paginates
+  infinitely (`useInfiniteTraces`, id-deduped `mergeTracePages`, IntersectionObserver
+  sentinel with a button fallback) and stops after page one where the backend omits
+  pagination meta. `lib/__tests__/no-fabricated-trace-data.test.ts` guards the page.
+
+Validation: `typecheck` 0 errors · `lint` 0 errors, 31 existing warnings (3 fewer than
+before this session: unused Hero/sidebar state) · `test` 34 files, 282 tests, no type
+errors · `build` exit 0 with 0 `width(-1)` occurrences and the price-history worker
+chunk emitted. Pre-existing breakage found and fixed along the way: unexported
+`extractSources`/`matchSources` (typecheck), a brittle `toBe(0.2)` float assertion, an
+unescaped apostrophe lint error, and a placeholder `matchSources` test that never called
+the helper. Contract-shaped event fixtures under `lib/stellar/__tests__/fixtures/` are
+synthetic (the contracts submodule is not initialized and there is no backend); they
+match the decoder's expected shapes, not newly captured testnet events. A Cumulative
+Layout Shift metric for the chart (web-vitals) was not measured: it needs a real browser
+run, which is outside these issues' verification.
 
 ## Wallet activity issues #39–#42 (2026-10-18)
 

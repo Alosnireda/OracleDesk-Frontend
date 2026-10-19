@@ -60,10 +60,11 @@ export interface DescribedError {
     | "network"
     | "submission"
     | "expired"
+    | "bad-auth"
     | "unknown";
   message: string;
   action?: "enable-usdc";
-  /** Contract error name, e.g. "SlippageExceeded", when known. */
+  /** Contract error name, e.g. "SlippageExceeded", or tx result code when known. */
   code?: string;
 }
 
@@ -100,7 +101,37 @@ export function describeError(err: unknown, contract: ContractName = "marketCore
     return {
       kind: "stale-sequence",
       code: "txBadSeq",
-      message: "Your account sequence changed while this transaction was being prepared. Please try again.",
+      message: "Another transaction from this account changed the sequence. Prepare it again with a fresh quote.",
+    };
+  }
+  // Multisig: threshold not met at submission. Check the longer `_extra`
+  // variant first so it isn't swallowed by the `_auth` branch.
+  if (/tx_bad_auth_extra|txBadAuthExtra/i.test(text)) {
+    return {
+      kind: "bad-auth",
+      code: "tx_bad_auth_extra",
+      message: "This transaction has extra signatures the network doesn't expect. Remove unknown signatures and try again.",
+    };
+  }
+  if (/tx_bad_auth|txBadAuth/i.test(text)) {
+    return {
+      kind: "bad-auth",
+      code: "tx_bad_auth",
+      message: "This account needs more signatures to meet its threshold. Collect the remaining signatures before submitting.",
+    };
+  }
+  if (/tx_too_late|txTooLate/i.test(text)) {
+    return {
+      kind: "expired",
+      code: "tx_too_late",
+      message: "This transaction expired before it was submitted. Prepare it again with a fresh quote.",
+    };
+  }
+  if (/archived|restore|expired.*footprint|footprint.*expired/i.test(text)) {
+    return {
+      kind: "expired",
+      code: "archived-entry",
+      message: "The transaction simulation is stale (archived entries or changed footprint). Prepare it again with a fresh quote.",
     };
   }
   if (/user (rejected|declined|denied)|rejected by (the )?user|request (was )?rejected|declined|cancell?ed by user|user closed/i.test(text)) {
@@ -144,6 +175,9 @@ export function describeError(err: unknown, contract: ContractName = "marketCore
   const named = Object.keys(FRIENDLY).find((n) => new RegExp(`\\b${n}\\b`).test(text));
   if (named) return { kind: "contract", code: named, message: FRIENDLY[named] };
 
+  if (/\b429\b|too many requests|rate.?limit/i.test(text)) {
+    return { kind: "network", code: "rate-limited", message: "The Stellar network is busy right now. Try again in a moment." };
+  }
   if (/Failed to fetch|NetworkError|ECONNREFUSED|timed? ?out|ETIMEDOUT/i.test(text)) {
     return { kind: "network", message: "Couldn't reach the Stellar network. Check your connection and try again." };
   }
@@ -182,10 +216,29 @@ export function describeSubmission(
 
   if (resultCode === "txBadSeq") {
     return {
-      kind: "submission",
+      kind: "stale-sequence",
+      code: "txBadSeq",
       submission: "rejected-by-network",
       resultCode,
-      message: "Transaction sequence number is invalid. Please try again.",
+      message: "Another transaction from this account changed the sequence. Prepare it again with a fresh quote.",
+    };
+  }
+  if (resultCode === "txBadAuth") {
+    return {
+      kind: "bad-auth",
+      code: "tx_bad_auth",
+      submission: "rejected-by-network",
+      resultCode,
+      message: "This account needs more signatures to meet its threshold. Collect the remaining signatures before submitting.",
+    };
+  }
+  if (resultCode === "txBadAuthExtra") {
+    return {
+      kind: "bad-auth",
+      code: "tx_bad_auth_extra",
+      submission: "rejected-by-network",
+      resultCode,
+      message: "This transaction has extra signatures the network doesn't expect. Remove unknown signatures and try again.",
     };
   }
   if (resultCode === "txInsufficientFee") {
@@ -198,10 +251,11 @@ export function describeSubmission(
   }
   if (resultCode === "txTooLate") {
     return {
-      kind: "submission",
+      kind: "expired",
+      code: "tx_too_late",
       submission: "rejected-by-network",
       resultCode,
-      message: "The transaction expired before reaching the ledger. Please try again.",
+      message: "This transaction expired before it was submitted. Prepare it again with a fresh quote.",
     };
   }
   if (resultCode === "txInsufficientBalance") {

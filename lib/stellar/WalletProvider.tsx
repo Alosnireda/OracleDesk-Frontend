@@ -13,6 +13,7 @@ import { loadStellarWalletsKit, type WalletKitAdapter } from "./wallet-kit-adapt
 import { WalletInterpreter } from "./wallet-interpreter";
 import { viewOf } from "./wallet-machine";
 import { TransactionTrackerProvider } from "./tx-tracker";
+import { storedPushWallet, unsubscribe as unsubscribePush } from "@/lib/notifications/push";
 
 export interface OpenModalOptions {
   /**
@@ -45,9 +46,12 @@ export interface WalletContextValue {
    */
   withSession: <T>(fn: () => Promise<T>, why: string) => Promise<T>;
   disconnect: () => Promise<void>;
+  /** Wallet module the user picked in the kit (e.g. "freighter"), for diagnostics. Optional. */
+  selectedWalletId?: string | null;
 }
 
-const WalletContext = createContext<WalletContextValue | null>(null);
+/** Exported so tests and stories can supply a fake value without the wallet kit. */
+export const WalletContext = createContext<WalletContextValue | null>(null);
 
 export function useWallet(): WalletContextValue {
   const ctx = useContext(WalletContext);
@@ -112,6 +116,26 @@ export function WalletProvider({ children, kitLoader = loadStellarWalletsKit }: 
   const view = useMemo(() => viewOf(state), [state]);
   const { address } = view;
 
+  const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!address) return;
+    let live = true;
+    kitLoader()
+      .then((kit) => live && setSelectedWalletId(kit.selectedModuleId?.() ?? null))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [address, kitLoader]);
+
+  // Push notifications are per-origin, not per-wallet: when the wallet
+  // disconnects or switches, drop the previous wallet's subscription so its
+  // pushes never show while another wallet is connected. Best effort.
+  useEffect(() => {
+    const stored = storedPushWallet();
+    if (stored && stored !== address && !view.isConnecting) void unsubscribePush().catch(() => {});
+  }, [address, view.isConnecting]);
+
   const signer = useMemo<Signer | null>(() => {
     if (!address) return null;
     return {
@@ -143,9 +167,13 @@ export function WalletProvider({ children, kitLoader = loadStellarWalletsKit }: 
         }
         return fn();
       },
-      disconnect: async () => interpreter.disconnect(),
+      disconnect: async () => {
+        await unsubscribePush().catch(() => {});
+        await interpreter.disconnect();
+      },
+      selectedWalletId: address ? selectedWalletId : null,
     }),
-    [address, view, signer, interpreter],
+    [address, view, signer, interpreter, selectedWalletId],
   );
 
   return (

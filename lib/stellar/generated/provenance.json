@@ -1,0 +1,11 @@
+{
+  "contractsCommit": "eb5f3fdaf00a39dabd7e7d41eb84e6d2c1940551",
+  "files": {
+    "market-core.ts": "oracledesk-stellar/packages/bindings/market-core/src/index.ts",
+    "treasury.ts": "oracledesk-stellar/packages/bindings/treasury/src/index.ts",
+    "reasoning-registry.ts": "oracledesk-stellar/packages/bindings/reasoning-registry/src/index.ts",
+    "resolver.ts": "oracledesk-stellar/packages/bindings/resolver/src/index.ts",
+    "fpmm.ts": "oracledesk-stellar/agents/core/fpmm.ts",
+    "deployments.testnet.json": "oracledesk-stellar/deployments/testnet.json"
+  }
+}

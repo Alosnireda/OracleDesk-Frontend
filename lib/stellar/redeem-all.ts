@@ -1,11 +1,23 @@
-import { Address, nativeToScVal, rpc, xdr } from "@stellar/stellar-sdk";
-import { marketCore } from "./clients";
-import { CONTRACTS, RPC_URL } from "./config";
+import { rpc } from "@stellar/stellar-sdk";
+import { RPC_URL } from "./config";
 import { settleValue, type Settlement } from "./generated/fpmm";
 import type { Market, Position } from "./generated/market-core";
+import {
+  chunks,
+  isMarket,
+  isPosition,
+  marketLedgerKey,
+  positionLedgerKey,
+  readUdt,
+  settlementOf,
+  LEDGER_ENTRY_CHUNK_SIZE,
+} from "./ledger-entries";
+
+// Shared with the "my positions" scan (lib/stellar/my-positions.ts). The
+// re-exports keep this module's public surface unchanged for existing callers.
+export { marketLedgerKey, positionLedgerKey, LEDGER_ENTRY_CHUNK_SIZE } from "./ledger-entries";
 
 export const REDEEM_ALL_STORAGE_KEY = "oracledesk_redeem_all:";
-export const LEDGER_ENTRY_CHUNK_SIZE = 200;
 export const MAX_REDEEM_SCAN_MARKETS = 20_000n;
 
 export interface Redeemable {
@@ -39,88 +51,6 @@ export interface RedeemAllResume {
 }
 
 const rpcServer = new rpc.Server(RPC_URL, { allowHttp: RPC_URL.startsWith("http://") });
-
-export function marketLedgerKey(marketId: bigint): xdr.LedgerKey {
-  const key = xdr.ScVal.scvVec([xdr.ScVal.scvSymbol("Market"), nativeToScVal(marketId, { type: "u64" })]);
-  return xdr.LedgerKey.contractData(
-    new xdr.LedgerKeyContractData({
-      contract: new Address(CONTRACTS.marketCore).toScAddress(),
-      key,
-      durability: xdr.ContractDataDurability.persistent(),
-    }),
-  );
-}
-
-export function positionLedgerKey(marketId: bigint, holder: string): xdr.LedgerKey {
-  const key = xdr.ScVal.scvVec([
-    xdr.ScVal.scvSymbol("Position"),
-    nativeToScVal(marketId, { type: "u64" }),
-    new Address(holder).toScVal(),
-  ]);
-  return xdr.LedgerKey.contractData(
-    new xdr.LedgerKeyContractData({
-      contract: new Address(CONTRACTS.marketCore).toScAddress(),
-      key,
-      durability: xdr.ContractDataDurability.persistent(),
-    }),
-  );
-}
-
-function chunks<T>(values: T[], size: number): T[][] {
-  const output: T[][] = [];
-  for (let i = 0; i < values.length; i += size) output.push(values.slice(i, i + size));
-  return output;
-}
-
-function readUdt<T>(name: string, scVal: xdr.ScVal): T {
-  const type = xdr.ScSpecTypeDef.scSpecTypeUdt(new xdr.ScSpecTypeUdt({ name }));
-  return marketCore().spec.scValToNative<T>(scVal, type);
-}
-
-function isPosition(value: unknown): value is Position {
-  if (!value || typeof value !== "object") return false;
-  const position = value as Record<string, unknown>;
-  return typeof position.yes === "bigint" && typeof position.no === "bigint";
-}
-
-function isMarket(value: unknown): value is Market {
-  if (!value || typeof value !== "object") return false;
-  const market = value as Record<string, unknown>;
-  const status = market.status;
-  const validStatus =
-    (Array.isArray(status) && ["Open", "Resolved", "Void"].includes(String(status[0]))) ||
-    Boolean(status && typeof status === "object" && "tag" in status &&
-      ["Open", "Resolved", "Void"].includes(String((status as { tag: unknown }).tag)));
-  return (
-    typeof market.close_time === "bigint" &&
-    typeof market.sets_minted === "bigint" &&
-    typeof market.reserve_yes === "bigint" &&
-    typeof market.reserve_no === "bigint" &&
-    validStatus
-  );
-}
-
-function settlementOf(status: Market["status"]): Settlement | null {
-  const parts = Array.isArray(status)
-    ? status
-    : status && typeof status === "object" && "tag" in status
-      ? [status.tag, ...("values" in status && Array.isArray(status.values) ? status.values : [])]
-      : [];
-  if (parts[0] === "Void") return "void";
-  if (parts[0] !== "Resolved") return null;
-  const outcome = parts[1];
-  const tag =
-    typeof outcome === "string"
-      ? outcome
-      : Array.isArray(outcome)
-        ? outcome[0]
-        : outcome && typeof outcome === "object" && "tag" in outcome
-          ? outcome.tag
-          : null;
-  if (tag === "Yes") return "yes";
-  if (tag === "No") return "no";
-  return null;
-}
 
 function isItemState(value: unknown): value is ItemState {
   if (!value || typeof value !== "object" || !("s" in value)) return false;

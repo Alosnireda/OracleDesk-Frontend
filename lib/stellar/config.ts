@@ -9,21 +9,43 @@ import deployments from "./generated/deployments.testnet.json";
  * is spelled out below.
  */
 
-const env = (value: string | undefined, fallback: string) => (value && value.trim() ? value.trim() : fallback);
+export type ConfigSource = "env" | "fallback";
+
+/** Where each config value came from, for the debug panel. Read-only outside this module. */
+const sources: Record<string, ConfigSource> = {};
+export const CONFIG_SOURCES: Readonly<Record<string, ConfigSource>> = sources;
+
+const env = (value: string | undefined, fallback: string, name?: string) => {
+  const used = Boolean(value && value.trim());
+  if (name) sources[name] = used ? "env" : "fallback";
+  return used ? (value as string).trim() : fallback;
+};
 
 export const TESTNET_PASSPHRASE = "Test SDF Network ; September 2015";
 
-export const NETWORK_PASSPHRASE = env(process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE, TESTNET_PASSPHRASE);
+export const NETWORK_PASSPHRASE = env(process.env.NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE, TESTNET_PASSPHRASE, "NETWORK_PASSPHRASE");
 export const NETWORK_LABEL = NETWORK_PASSPHRASE === TESTNET_PASSPHRASE ? "Stellar Testnet" : "Stellar";
-export const RPC_URL = env(process.env.NEXT_PUBLIC_STELLAR_RPC_URL, "https://soroban-testnet.stellar.org");
-export const EXPLORER_URL = env(process.env.NEXT_PUBLIC_STELLAR_EXPLORER_URL, "https://stellar.expert/explorer/testnet");
+const dedupe = (urls: string[]) => [...new Set(urls)];
+
+/**
+ * Soroban RPC endpoints. NEXT_PUBLIC_STELLAR_RPC_URL stays the first/primary
+ * entry; NEXT_PUBLIC_STELLAR_RPC_URLS (comma-separated) adds failover
+ * endpoints. See lib/stellar/rpc-pool.ts for selection and pinning.
+ */
+export const RPC_URLS: readonly string[] = dedupe([
+  env(process.env.NEXT_PUBLIC_STELLAR_RPC_URL, "https://soroban-testnet.stellar.org", "RPC_URL"),
+  ...(process.env.NEXT_PUBLIC_STELLAR_RPC_URLS ?? "").split(",").map((s) => s.trim()).filter(Boolean),
+]);
+sources.RPC_URLS = process.env.NEXT_PUBLIC_STELLAR_RPC_URLS?.trim() ? "env" : "fallback";
+export const RPC_URL = RPC_URLS[0]; // unchanged export for existing callers
+export const EXPLORER_URL = env(process.env.NEXT_PUBLIC_STELLAR_EXPLORER_URL, "https://stellar.expert/explorer/testnet", "EXPLORER_URL");
 
 export const CONTRACTS = {
-  marketCore: env(process.env.NEXT_PUBLIC_MARKET_CORE_CONTRACT_ID, deployments.contracts.market_core),
-  treasury: env(process.env.NEXT_PUBLIC_TREASURY_CONTRACT_ID, deployments.contracts.treasury),
-  resolver: env(process.env.NEXT_PUBLIC_RESOLVER_CONTRACT_ID, deployments.contracts.resolver),
-  reasoningRegistry: env(process.env.NEXT_PUBLIC_REASONING_REGISTRY_CONTRACT_ID, deployments.contracts.reasoning_registry),
-  usdc: env(process.env.NEXT_PUBLIC_USDC_CONTRACT_ID, deployments.contracts.usdc),
+  marketCore: env(process.env.NEXT_PUBLIC_MARKET_CORE_CONTRACT_ID, deployments.contracts.market_core, "CONTRACTS.marketCore"),
+  treasury: env(process.env.NEXT_PUBLIC_TREASURY_CONTRACT_ID, deployments.contracts.treasury, "CONTRACTS.treasury"),
+  resolver: env(process.env.NEXT_PUBLIC_RESOLVER_CONTRACT_ID, deployments.contracts.resolver, "CONTRACTS.resolver"),
+  reasoningRegistry: env(process.env.NEXT_PUBLIC_REASONING_REGISTRY_CONTRACT_ID, deployments.contracts.reasoning_registry, "CONTRACTS.reasoningRegistry"),
+  usdc: env(process.env.NEXT_PUBLIC_USDC_CONTRACT_ID, deployments.contracts.usdc, "CONTRACTS.usdc"),
 } as const;
 
 /**
@@ -31,7 +53,7 @@ export const CONTRACTS = {
  * or the backend will reject the payment. Defaults to the treasury, like the
  * backend (see docs/api.md for why that is a product decision).
  */
-export const PAYMENTS_RECIPIENT = env(process.env.NEXT_PUBLIC_PAYMENTS_RECIPIENT, CONTRACTS.treasury);
+export const PAYMENTS_RECIPIENT = env(process.env.NEXT_PUBLIC_PAYMENTS_RECIPIENT, CONTRACTS.treasury, "PAYMENTS_RECIPIENT");
 
 /**
  * Admin G-addresses. This is a UI gate only: the backend enforces admin
@@ -42,14 +64,15 @@ export const ADMIN_ADDRESSES: readonly string[] = (process.env.NEXT_PUBLIC_ADMIN
   .split(",")
   .map((a) => a.trim())
   .filter(Boolean);
+sources.ADMIN_ADDRESSES = ADMIN_ADDRESSES.length ? "env" : "fallback";
 
 export const isAdminAddress = (address: string | null | undefined) =>
   Boolean(address) && ADMIN_ADDRESSES.includes(address as string);
 
-export const IPFS_GATEWAY = env(process.env.NEXT_PUBLIC_IPFS_GATEWAY_URL, "https://ipfs.io/ipfs");
+export const IPFS_GATEWAY = env(process.env.NEXT_PUBLIC_IPFS_GATEWAY_URL, "https://ipfs.io/ipfs", "IPFS_GATEWAY");
 
 /** The contracts repo's x402 trace service (per-trace unlocks). Empty if not deployed. */
-export const X402_URL = env(process.env.NEXT_PUBLIC_X402_URL, "");
+export const X402_URL = env(process.env.NEXT_PUBLIC_X402_URL, "", "X402_URL");
 
 /**
  * WalletConnect (mobile wallets such as LOBSTR and Freighter Mobile). Off

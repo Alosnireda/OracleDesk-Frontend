@@ -7,13 +7,19 @@ import { useSubmitQueueState } from "@/lib/stellar/submit-queue";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { useWallet } from "@/lib/contexts/WalletContext";
-import { useUsdcTransfer, useAccountReserve, usePrepareUsdcTransfer } from "@/lib/hooks/useStellar";
-import { useUnlockTrace } from "@/lib/hooks/useTraces";
-import { PAYMENTS_RECIPIENT, explorerTx } from "@/lib/stellar/config";
+import { useUsdcTransfer, useAccountReserve, usePrepareUsdcTransfer, useAccountAuth, usePrepareMultisig } from "@/lib/hooks/useStellar";
+import { PAYMENTS_RECIPIENT, NETWORK_PASSPHRASE, explorerTx } from "@/lib/stellar/config";
 import { formatUsdc, formatXlm, parseUsdc } from "@/lib/stellar/units";
 import { TxPhase } from "@/lib/stellar/tx-lifecycle";
+import { isMultisigAccount, type MultisigSession } from "@/lib/stellar/multisig";
+import { MultisigReview } from "@/components/multisig-review";
+import { PendingPaymentCard } from "@/components/pending-payment-card";
+import { isUnfinishedPayment, listPending, removePending, savePending, type PendingPayment } from "@/lib/payments/pending";
+import { verifyPendingPayment, type VerifyResult } from "@/lib/payments/verify";
+import { DAILY_PASS_TRACE_PLACEHOLDER } from "@/lib/api/traces";
 
 function renderTxPhase(phase: TxPhase): string | null {
   switch (phase.name) {
@@ -42,9 +48,6 @@ function renderTxPhase(phase: TxPhase): string | null {
  * so this must not be lower than the backend's value.
  */
 const DAILY_PASS_PRICE_RAW = parseUsdc(process.env.NEXT_PUBLIC_DAILY_PASS_PRICE_USDC || "0.5");
-
-/** The backend unlock route needs a trace id in the path; a daily pass covers every trace. */
-const DAILY_PASS_TRACE_PLACEHOLDER = "00000000-0000-0000-0000-000000000000";
 
 interface Tier {
   name: string;
@@ -115,8 +118,13 @@ export default function PremiumPage() {
   const { address, isConnected, isWrongNetwork, openModal, ensureSession } = useWallet();
   const transfer = useUsdcTransfer();
   const submitQueue = useSubmitQueueState(address);
-  const unlock = useUnlockTrace();
+  const queryClient = useQueryClient();
   const reserve = useAccountReserve(address);
+  const [, setPendingVersion] = useState(0);
+  const refreshPending = useCallback(() => setPendingVersion((version) => version + 1), []);
+  const pendingPayments = address ? listPending(address, NETWORK_PASSPHRASE) : [];
+  const visiblePending = pendingPayments.filter((payment) => payment.state !== "verified");
+  const hasUnfinishedPayment = pendingPayments.some(isUnfinishedPayment);
 
   const [selectedTier, setSelectedTier] = useState<Tier | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"usdc" | "card">("usdc");
@@ -124,6 +132,11 @@ export default function PremiumPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [reviewModel, setReviewModel] = useState<{ model: ReviewModel; changedFrom?: ReviewModel } | null>(null);
   const reviewResolver = useRef<((approved: boolean) => void) | null>(null);
+  const accountAuth = useAccountAuth(address);
+  const isMultisig = accountAuth.data ? isMultisigAccount(accountAuth.data) : false;
+  const [multisigMode, setMultisigMode] = useState(false);
+  const [multisigSession, setMultisigSession] = useState<MultisigSession | null>(null);
+  const prepareMultisig = usePrepareMultisig();
   const waitingForTransfer =
     submitQueue.waiting.some((job) => job.label === "USDC transfer") ||
     (submitQueue.lockWaiting && submitQueue.running?.label === "USDC transfer");
@@ -157,6 +170,29 @@ export default function PremiumPage() {
     holder: address,
   });
 
+  const resumePayment = useCallback(
+    async (payment: PendingPayment, signIn?: () => Promise<boolean>): Promise<VerifyResult> => {
+      const result = await verifyPendingPayment(payment, { signIn, onUpdate: refreshPending });
+      refreshPending();
+      if (result === "verified") {
+        queryClient.invalidateQueries({ queryKey: ["trace-payments"] });
+        queryClient.invalidateQueries({ queryKey: ["trace"] });
+        queryClient.invalidateQueries({ queryKey: ["traces"] });
+      }
+      return result;
+    },
+    [queryClient, refreshPending],
+  );
+
+  // Resume payments that were still being verified on a previous visit. Sign-in is never
+  // requested here, so loading the page can't open a wallet prompt.
+  useEffect(() => {
+    if (!address || isWrongNetwork) return;
+    for (const payment of listPending(address, NETWORK_PASSPHRASE)) {
+      if (payment.state === "submitted" || payment.state === "verifying") void resumePayment(payment);
+    }
+  }, [address, isWrongNetwork, resumePayment]);
+
   const fees = prepareTransfer.data?.fees;
   const isUnfunded = Boolean(reserve.data && !reserve.data.funded);
   const isInsufficientXlm = Boolean(
@@ -176,8 +212,24 @@ export default function PremiumPage() {
     setSelectedTier(tier);
   };
 
+  const handlePrepareMultisigTransfer = async () => {
+    if (!selectedTier?.priceRaw || !address) return;
+    try {
+      const session = await prepareMultisig.mutateAsync({
+        kind: "transfer",
+        to: PAYMENTS_RECIPIENT,
+        amount: selectedTier.priceRaw,
+        sourceAccount: address,
+        timeoutInSeconds: 3600,
+      });
+      setMultisigSession(session);
+    } catch (error) {
+      setStatusMessage(error instanceof Error ? error.message : "Couldn't prepare the multisig payment.");
+    }
+  };
+
   const handlePayment = async () => {
-    if (!selectedTier?.priceRaw) return;
+    if (!selectedTier?.priceRaw || !address) return;
 
     if (paymentMethod === "card") {
       setStatusMessage("Card payments aren't available. Pay with USDC instead.");
@@ -187,8 +239,14 @@ export default function PremiumPage() {
       setStatusMessage("Switch your wallet to Stellar Testnet to complete the purchase.");
       return;
     }
+    // Read storage again here so a payment started in another tab is respected.
+    if (listPending(address, NETWORK_PASSPHRASE).some(isUnfinishedPayment)) {
+      setStatusMessage("Finish your previous payment before making another one.");
+      return;
+    }
 
     setIsSubmitting(true);
+    let txHash: string | null = null;
     try {
       setStatusMessage("One more signature: this logs you in to OracleDesk and doesn't move funds.");
       if (!(await ensureSession())) {
@@ -197,7 +255,7 @@ export default function PremiumPage() {
       }
 
       setStatusMessage(null);
-      const { txHash } = await transfer.mutateAsync({
+      const sent = await transfer.mutateAsync({
         to: PAYMENTS_RECIPIENT,
         amount: selectedTier.priceRaw,
         prepared: prepareTransfer.data,
@@ -208,18 +266,38 @@ export default function PremiumPage() {
           amountRaw: selectedTier.priceRaw.toString(),
         },
       });
+      txHash = sent.txHash.toLowerCase();
+
+      // Persist before verifying: if verification fails, the paid transaction stays recoverable.
+      const payment: PendingPayment = {
+        txHash,
+        kind: "DAILY_PASS",
+        amountRaw: selectedTier.priceRaw.toString(),
+        from: sent.holder,
+        recipient: PAYMENTS_RECIPIENT,
+        networkPassphrase: NETWORK_PASSPHRASE,
+        createdAt: Date.now(),
+        attempts: 0,
+        state: "submitted",
+      };
+      const saved = savePending(payment);
+      refreshPending();
 
       setStatusMessage("Payment sent. Waiting for OracleDesk to verify it on-chain…");
-      await unlock.mutateAsync({
-        traceId: DAILY_PASS_TRACE_PLACEHOLDER,
-        txHash,
-        amountRaw: selectedTier.priceRaw.toString(),
-      });
-
-      setStatusMessage(`Your daily pass is active for 24 hours. Transaction: ${explorerTx(txHash)}`);
-      setTimeout(() => setSelectedTier(null), 4000);
+      const result = await resumePayment(payment, ensureSession);
+      if (!saved) {
+        setStatusMessage(`Couldn't save this payment on this device. Keep this transaction: ${explorerTx(txHash)}`);
+      } else if (result === "verified") {
+        setStatusMessage(`Your daily pass is active for 24 hours. Transaction: ${explorerTx(txHash)}`);
+        setTimeout(() => setSelectedTier(null), 4000);
+      } else {
+        setStatusMessage("Payment received. Activation is still pending and is listed above; you don't need to pay again.");
+      }
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : "Payment failed. Please try again.");
+      const message = error instanceof Error ? error.message : "Payment failed. Please try again.";
+      setStatusMessage(
+        txHash === null ? `${message} If funds left your wallet, check its history before paying again.` : message,
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -242,6 +320,24 @@ export default function PremiumPage() {
 
       {/* Pricing & Tier Selection */}
       <section className="py-12 px-gutter max-w-container-max-width mx-auto">
+        {visiblePending.length > 0 && (
+          <div className="mb-8 space-y-3">
+            <h2 className="font-headline-sm text-headline-sm">Unfinished payments</h2>
+            {visiblePending.map((payment) => (
+              <PendingPaymentCard
+                key={payment.txHash}
+                payment={payment}
+                busy={payment.state === "verifying"}
+                wrongNetwork={isWrongNetwork}
+                onRetry={() => void resumePayment(payment, ensureSession)}
+                onDismiss={() => {
+                  removePending(payment.txHash);
+                  refreshPending();
+                }}
+              />
+            ))}
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16 pt-8">
           {tiers.map((tier) => (
             <div
@@ -282,7 +378,7 @@ export default function PremiumPage() {
               </ul>
               <button
                 onClick={() => openCheckout(tier)}
-                disabled={tier.priceRaw === null}
+                disabled={tier.priceRaw === null || (Boolean(tier.priceRaw) && hasUnfinishedPayment)}
                 className={`w-full py-3 rounded-lg font-label-caps text-label-caps transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
                   tier.name === "Free"
                     ? "border border-outline hover:bg-surface-container"
@@ -291,7 +387,7 @@ export default function PremiumPage() {
                     : "border border-primary text-primary hover:bg-primary/5"
                 }`}
               >
-                {tier.buttonText}
+                {Boolean(tier.priceRaw) && hasUnfinishedPayment ? "Finishing your previous payment…" : tier.buttonText}
               </button>
             </div>
           ))}
@@ -514,18 +610,42 @@ export default function PremiumPage() {
                     disabled={
                       isSubmitting ||
                       transfer.isPending ||
+                      hasUnfinishedPayment ||
                       (isConnected && isUnfunded) ||
                       (isConnected && isInsufficientXlm)
                     }
                   >
                     {isSubmitting || transfer.isPending
                       ? (transfer.phase.name === "awaiting-signature" ? "Signing…" : "Processing...")
+                      : hasUnfinishedPayment
+                      ? "Finishing your previous payment…"
                       : isUnfunded
                       ? "Fund Account"
                       : isInsufficientXlm
                       ? "Insufficient XLM"
                       : paymentMethod === 'usdc' ? "Pay with Wallet" : "Proceed to Payment"}
                   </button>
+                  {isConnected && (
+                    <div className="rounded-lg border border-outline-variant bg-surface-container-low p-3 space-y-2 mt-2">
+                      <label className="flex items-center gap-2 text-xs">
+                        <input type="checkbox" checked={multisigMode} onChange={(e) => setMultisigMode(e.target.checked)} />
+                        Use multisig (treasury account)
+                      </label>
+                      {isMultisig && !multisigMode && (
+                        <p className="text-[11px] text-on-surface-variant">Detected {accountAuth.data?.signers.length} signers, medium threshold {accountAuth.data?.med}. Use multisig prepare for treasury payments.</p>
+                      )}
+                      {(multisigMode || isMultisig) && (
+                        <button
+                          type="button"
+                          onClick={handlePrepareMultisigTransfer}
+                          disabled={prepareMultisig.isPending}
+                          className="w-full py-2 border border-outline-variant rounded-lg text-xs font-bold disabled:opacity-50"
+                        >
+                          {prepareMultisig.isPending ? "Preparing…" : "Prepare multisig payment (1h window)"}
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <p className="text-center text-[10px] text-on-surface-variant uppercase tracking-widest mt-4">
                     Verified on-chain by OracleDesk before access is granted
                   </p>
@@ -544,6 +664,13 @@ export default function PremiumPage() {
           changedFrom={reviewModel.changedFrom}
           onConfirm={() => closeReview(true)}
           onCancel={() => closeReview(false)}
+        />
+      )}
+      {multisigSession && (
+        <MultisigReview
+          session={multisigSession}
+          onClose={() => setMultisigSession(null)}
+          onUpdated={(next) => setMultisigSession(next)}
         />
       )}
     </main>
