@@ -9,6 +9,7 @@ The frontend has two sources that can disagree, and it says which one a value ca
 | Prices, reserves, market status, positions, USDC balance | **Chain**, via simulated contract calls (`lib/hooks/useStellar.ts`) | The contract is the truth; the backend's copy can lag. |
 | Question text, category, reasoning traces (metadata), subscriptions, platform counts | **Backend** (`lib/api/*`, `docs/api.md`) | Not stored on-chain in readable form. |
 | Trace content | **IPFS**, then hash-checked against `reasoning_registry.get_trace` | Gateways are not authenticated; content is shown only if its sha256 matches the chain (`lib/stellar/trace.ts`). |
+| Treasury risk caps (`max_trade`, `max_market`, `max_daily`), daily usage, available capital | **Chain**, treasury `get_config`, `daily_usage` and `available_capital` (`lib/hooks/useTreasury.ts`) | Read on `/portfolio` without auth. The reset countdown uses ledger close time. The backend's `availableCapitalRaw` is flagged when it differs from the chain for two refetches in a row. Per-market exposure and the paused flag aren't readable yet (see `docs/contract-requests.md`). |
 | Per-market trade tape | **Chain** `Trade` events, extended by validated socket events | Contract-spec topic filters select one market. Backward ledger windows with forward cursor pagination find the newest rows; RPC retention limits history. Socket copies are replaced by decoded RPC copies on refetch. |
 | Per-market price history | **Chain** market-core `getEvents`, decoded and bucketed client-side (`lib/stellar/price-history.ts`, `lib/charts/*`) | Event retention bounds history; the chart shows coverage and the retention reason explicitly. Decoded points cache in IndexedDB per market (32-entry in-memory fallback when storage is unavailable). |
 | Wallet inbox | **IndexedDB**, populated from validated own-wallet events and the transaction tracker | Scoped by address and network passphrase. It contains no agent portfolio data. Resolution/redemption events are polled every 60 seconds while visible; current contract status catches resolutions outside retention. |
@@ -86,6 +87,17 @@ Points bucket on a worker (`lib/charts/bucket.worker.ts`) into fixed widths per 
 
 All routes prerender as static pages. Pages that read query parameters (`/markets/quick-view`, `/copy-trade`, `/reasoning/verify`) keep `useSearchParams` inside a `<Suspense>` boundary; without it the production build fails.
 
+### Server and client boundaries
+
+Pages under `app/` should default to server components. Only the smallest interactive subtree should opt into `"use client"`; static marketing copy, pricing tables, feature summaries and layout-only content stay in the server-rendered shell so they do not inflate the client bundle or hydrate unnecessarily.
+
+- Keep page entrypoints in `app/.../page.tsx` as server components that render a lightweight client island.
+- Co-locate interactive islands under `app/_components/` or `app/<route>/page-client.tsx` with a single `"use client"` directive at the top.
+- Pass only serializable props across the server/client boundary (strings, numbers, arrays, plain objects, URL strings, not functions or `bigint`).
+- Wallet, React Query, socket streams, framer-motion and browser-only APIs stay client-only and are never imported into server pages.
+- Server pages must not import `lib/contexts/*`, `lib/hooks/*`, `WalletProvider`, or client-only config objects. They are static and should remain free of browser-only code.
+- Use `export const dynamic = "error"` on server-shell routes that are meant to stay static. This fails fast if a future change accidentally makes a route dynamic.
+
 ### Realtime lists and storage bounds
 
 `RealtimeProvider` owns one socket and one mixed-event scheduler. Valid payloads enter a 500-event bounded batch; subscribers receive at most one batch per animation frame. Hidden tabs accumulate a bounded backlog without updating realtime DOM, then receive one catch-up batch with overflow counts. Feed rings retain six home rows and eight market rows with event IDs as keys. A rolling second above ten events suppresses row animations and displays a summary; reduced motion also disables the ticker and realtime row animations.
@@ -101,6 +113,17 @@ The home hero shows the most liquid ACTIVE market from the markets feed (`pickFe
 ## RPC endpoints
 
 `RPC_URLS` = `NEXT_PUBLIC_STELLAR_RPC_URL` (primary) + `NEXT_PUBLIC_STELLAR_RPC_URLS`. `lib/stellar/rpc-pool.ts` verifies each endpoint with `getNetwork` (wrong passphrase → never used), probes `getLatestLedger` every 15 s while the tab is visible, and keeps the last 50 samples per endpoint (p50/p95, error rate, 429s with Retry-After back-off, ledger lag). Selection is sticky: it switches only when another endpoint scores ≥30% better on two consecutive probes, or the current one is down/degraded. Write hooks run inside `withPinnedRpc`, so quote, simulate, submit and polling use one endpoint; a failed submission is never resent elsewhere. Reads carry the ledger they were simulated at (quick-view shows "as of ledger N") and an older-ledger result never replaces newer cached data. Single-endpoint setups behave as before.
+
+## Trace verification
+
+The on-chain `trace_hash` decides whether content is shown. Everything else is evidence about why a check failed.
+
+- **Gateway pool.** `NEXT_PUBLIC_IPFS_GATEWAY_URL` is a comma-separated list (at most 5 https gateways; `http://localhost` is allowed for local testing). `lib/stellar/trace-core.ts` races them: gateway *i* starts after *i* × 750 ms, or as soon as an earlier attempt fails. Each attempt has an 8 s timeout. The first attempt whose bytes match the on-chain hash wins, and the others are aborted. A mismatch doesn't end the race, because another gateway may serve the correct bytes.
+- **Outcomes.** `verified` means some gateway served bytes whose sha256 equals the chain. `mismatch` means at least one gateway returned bytes and none matched; content is never returned. `unavailable` means no gateway returned usable bytes, or the user cancelled. Every result carries per-gateway `attempts` (outcome, HTTP status, time, bytes), shown on `/reasoning/verify`.
+- **Size cap.** `NEXT_PUBLIC_IPFS_MAX_TRACE_BYTES` (default 1 MiB) is enforced while the body streams, so an oversized response is abandoned without being buffered.
+- **CID check.** `lib/stellar/cid.ts` checks CIDv1 raw-codec sha2-256 CIDs against the bytes. It reports `match`, `mismatch`, `unsupported` (for example dag-pb, used for multi-block files) or `invalid`. The check is informational and never overrides the on-chain hash. A CID mismatch with a verified hash means the publish is inconsistent. A CID mismatch with a hash mismatch means the gateway served the wrong object.
+- **Worker.** `lib/stellar/trace.worker.ts` runs the race, the incremental SHA-256 (`lib/stellar/sha256.ts`) and the JSON decode off the main thread, and posts progress. Only verified bytes are transferred back, as a transferable `ArrayBuffer`. Mismatches carry no bytes. `verifyTraceInWorker` falls back to the main thread when workers are unavailable, and does so for the rest of the session if the worker fails at runtime.
+- **CSP.** The worker is a same-origin module (`new Worker(new URL("./trace.worker.ts", import.meta.url), { type: "module" })`). A strict CSP needs `worker-src 'self'` and must not allow `blob:`. Gateway subdomain redirects (for example `dweb.link`) need `connect-src` entries too.
 
 ## PWA and service worker
 

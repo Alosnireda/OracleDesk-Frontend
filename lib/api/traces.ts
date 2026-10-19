@@ -96,7 +96,7 @@ export interface SpendingAllowance {
  */
 export interface PaymentEvent {
   id?: string;
-  type: UnlockType;
+  type: UnlockType | string;
   /** USDC moved by the verified transaction, in 7-decimal base units. */
   amountRaw: string;
   /** 64-hex Stellar transaction hash; unique across all payments. */
@@ -106,6 +106,8 @@ export interface PaymentEvent {
   walletAddress?: string;
   currency?: SettlementCurrency;
   createdAt: string;
+  status?: string;
+  confirmedAt?: string | null;
 }
 
 export async function listTraces(params: ListTracesParams = {}) {
@@ -164,16 +166,6 @@ export async function setSpendingAllowance(allowance: {
 }) {
   const { data } = await apiClient.put<SpendingAllowance>("/traces/access/allowance", allowance);
   return data;
-}
-
-export interface PaymentEvent {
-  id: string;
-  txHash: string;
-  type: string;
-  amountRaw: string;
-  status: string;
-  createdAt: string;
-  confirmedAt: string | null;
 }
 
 export async function getPaymentEvents() {

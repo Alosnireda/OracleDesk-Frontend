@@ -18,6 +18,18 @@ describe("describeError", () => {
     expect(describeError("Error(Contract, #5)", "marketCore").code).toBe("InvalidProbability");
   });
 
+  it("maps treasury #7 to the daily-limit wording", () => {
+    expect(describeError("Error(Contract, #7)", "treasury")).toMatchObject({
+      code: "DailyCapExceeded",
+      message: "The treasury has reached its daily limit.",
+    });
+  });
+
+  it("words NotInitialized for the treasury only, not for the other contracts", () => {
+    expect(describeError("Error(Contract, #1)", "treasury").message).toBe("The treasury isn't set up yet.");
+    expect(describeError("Error(Contract, #1)", "marketCore").message).not.toMatch(/treasury/);
+  });
+
   it("recognises wallet rejection", () => {
     expect(describeError({ code: -4, message: "The user rejected this request." }).kind).toBe("rejected");
     expect(describeError(new Error("User declined access")).kind).toBe("rejected");

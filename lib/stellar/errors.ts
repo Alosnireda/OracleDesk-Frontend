@@ -12,6 +12,18 @@ const TABLES: Record<ContractName, Record<number, { message: string }>> = {
   reasoningRegistry: ReasoningRegistryErrors,
 };
 
+/**
+ * Messages for error names that mean different things in different contracts
+ * (NotInitialized exists in four of them). Checked before FRIENDLY, and only
+ * for numeric codes from that contract's own table.
+ */
+const CONTRACT_FRIENDLY: Partial<Record<ContractName, Record<string, string>>> = {
+  treasury: {
+    NotInitialized: "The treasury isn't set up yet.",
+    InvalidConfig: "The treasury's risk settings are invalid.",
+  },
+};
+
 /** Plain-language messages for contract error names, from the user's point of view. */
 export const FRIENDLY: Record<string, string> = {
   // market-core

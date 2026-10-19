@@ -72,6 +72,22 @@ export const marketCore = (signer?: Signer, opts?: { timeoutInSeconds?: number }
   new MarketCoreClient(options(CONTRACTS.marketCore, signer, opts, rpcUrl));
 export const treasury = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
   new TreasuryClient(options(CONTRACTS.treasury, signer, opts, rpcUrl));
+
+const treasuryReaders = new Map<string, TreasuryClient>();
+/**
+ * Signer-less treasury client for reads, memoised per RPC URL. Polling reuses
+ * one client (no spec re-parse each time), and a pool failover to another
+ * endpoint builds a new one, because the URL is part of the key.
+ */
+export function treasuryReader(): TreasuryClient {
+  const rpcUrl = currentRpcUrl();
+  let reader = treasuryReaders.get(rpcUrl);
+  if (!reader) {
+    reader = treasury(undefined, undefined, rpcUrl);
+    treasuryReaders.set(rpcUrl, reader);
+  }
+  return reader;
+}
 export const resolver = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
   new ResolverClient(options(CONTRACTS.resolver, signer, opts, rpcUrl));
 export const reasoningRegistry = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
