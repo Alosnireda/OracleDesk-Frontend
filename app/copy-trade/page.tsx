@@ -14,7 +14,9 @@ import { ApiError } from "@/lib/api/client";
 import { useMarket } from "@/lib/hooks/useMarkets";
 import { useBuy, useQuoteBuy, useUsdcBalance, useAccountReserve, usePrepareBuy, useOnChainMarket, fetchOnChainMarket, useUsdcTrustline, useEnableUsdc, useUsdcBalanceState, type PreparedWriteReview } from "@/lib/hooks/useStellar";
 import { explorerTx } from "@/lib/stellar/config";
-import { formatUsdc, formatXlm, minOut, shareOf, bpsToPercent } from "@/lib/stellar/units";
+import { formatUsdc, formatXlm, minOut, bpsToPercent, probabilityToBps, tryParseUsdc, BPS } from "@/lib/stellar/units";
+import { chooseCollateral, maxCollateralForEdge, quoteCopy, type CopyMarket, type CopyQuote, type SizingMode } from "@/lib/stellar/quote";
+import type { OutcomeTag } from "@/lib/stellar/clients";
 import { TxPhase } from "@/lib/stellar/tx-lifecycle";
 
 /** Wait this long after the slider stops before asking for a new quote. */
@@ -23,7 +25,46 @@ import { MIN_TX_TIMEOUT_S, SAFETY_MARGIN_S } from "@/lib/stellar/deadline";
 import { PendingValue } from "@/components/pending-value";
 import { SLIPPAGE_PRESET_BPS } from "@/lib/settings/settings";
 import { useSettings } from "@/lib/settings/useSettings";
+import Link from "next/link";
 const QUOTE_DEBOUNCE_MS = 400;
+/** Below this remaining edge (1 point) the user must tick a box before copying. */
+const MIN_EDGE_WARN_BPS = 100n;
+
+const SIZING_OPTIONS = [
+  { kind: "percent", label: "% of balance" },
+  { kind: "fixed", label: "Fixed USDC" },
+  { kind: "mirror", label: "Mirror agent" },
+] as const;
+type SizingKind = (typeof SIZING_OPTIONS)[number]["kind"];
+
+function copyMarketOf(market: { reserve_yes: bigint; reserve_no: bigint; fee_bps: number | bigint; sets_minted: bigint }): CopyMarket {
+  return { reserveYes: market.reserve_yes, reserveNo: market.reserve_no, feeBps: BigInt(market.fee_bps), setsMinted: market.sets_minted };
+}
+
+/** The agent's probability as bps, or null when the backend sent something out of range. */
+function estimateToBps(probability: number): bigint | null {
+  try {
+    return probabilityToBps(probability);
+  } catch {
+    return null;
+  }
+}
+
+function tryQuoteCopy(
+  market: CopyMarket | null,
+  side: OutcomeTag | null,
+  amount: bigint | null,
+  estimateYesBps: bigint | null,
+): CopyQuote | null {
+  if (!market || !side || amount === null || amount <= 0n || estimateYesBps === null) return null;
+  try {
+    return quoteCopy(market, side, amount, estimateYesBps);
+  } catch {
+    return null;
+  }
+}
+
+const formatEdge = (bps: bigint) => `${bps >= 0n ? "+" : ""}${(Number(bps) / 100).toFixed(1)} pts`;
 
 function renderTxPhase(phase: TxPhase): string | null {
   switch (phase.name) {
@@ -83,6 +124,10 @@ function CopyTradeContent() {
 
   // Allocation as a share of the wallet's USDC balance, in basis points.
   const [allocationBps, setAllocationBps] = useState(1250);
+  const [sizingKind, setSizingKind] = useState<SizingKind>("percent");
+  const [fixedInput, setFixedInput] = useState("");
+  const [capInput, setCapInput] = useState("");
+  const [acknowledgeThinEdge, setAcknowledgeThinEdge] = useState(false);
   // Slippage starts from the saved default (/settings); the picker below is a
   // per-trade override that never writes back to settings.
   const { settings } = useSettings(address);
@@ -129,8 +174,29 @@ function CopyTradeContent() {
     submitQueue.waiting.some((job) => job.label === buyLabel) ||
     (submitQueue.lockWaiting && submitQueue.running?.label === buyLabel);
   const allocation = allocationBps / 100;
-  const amountRaw = balance.data !== undefined ? shareOf(balance.data, allocationBps) : null;
+  const fixedAmount = tryParseUsdc(fixedInput);
+  const userCap = tryParseUsdc(capInput);
+  const sizingMode: SizingMode =
+    sizingKind === "fixed"
+      ? { kind: "fixed", amount: fixedAmount ?? 0n }
+      : sizingKind === "mirror"
+        ? { kind: "mirror", betFraction: trace?.betFraction }
+        : { kind: "percent", bps: allocationBps };
+  const choice = balance.data !== undefined ? chooseCollateral(sizingMode, { balance: balance.data, userCap }) : null;
+  const amountRaw = choice ? choice.amount : null;
   const slippageBps = slippageOverrideBps ?? settings.slippageBps;
+
+  // The agent's estimate and the copy's own cost on the current reserves, all in bigint bps.
+  const estimateYesBps = trace ? estimateToBps(trace.probabilityEstimate) : null;
+  const estimateSideBps = estimateYesBps === null || !side ? null : side === "Yes" ? estimateYesBps : BPS - estimateYesBps;
+  const copyMarket = onChainMarket.data ? copyMarketOf(onChainMarket.data.market) : null;
+  const localQuote = tryQuoteCopy(copyMarket, side, amountRaw, estimateYesBps);
+  const maxForEdge =
+    copyMarket && side && estimateYesBps !== null && balance.data !== undefined
+      ? maxCollateralForEdge(copyMarket, side, estimateYesBps, MIN_EDGE_WARN_BPS, balance.data)
+      : null;
+  const edgeBlocked = localQuote !== null && localQuote.edgeAfterBps <= 0n;
+  const thinEdge = localQuote !== null && localQuote.edgeAfterBps > 0n && localQuote.edgeAfterBps < MIN_EDGE_WARN_BPS;
 
   const debouncedAmount = useDebounced(amountRaw, QUOTE_DEBOUNCE_MS);
   const quote = useQuoteBuy(onChainMarketId, side ?? "Yes", side ? debouncedAmount : null);
@@ -244,6 +310,27 @@ function CopyTradeContent() {
         BigInt(Math.floor(freshLedgerNow)) + BigInt(SAFETY_MARGIN_S + MIN_TX_TIMEOUT_S) >= freshMarket.market.close_time
       ) {
         setStatusMessage("This market is closed or too close to its deadline to safely place a trade.");
+        return;
+      }
+
+      // Re-check against fresh chain state before anything is recorded or signed.
+      const freshBalance = await balance.refetch();
+      const freshAmount = chooseCollateral(sizingMode, { balance: freshBalance.data ?? 0n, userCap }).amount;
+      if (freshAmount !== amountRaw) {
+        setStatusMessage("Your balance changed, so the amount is different now. Check it and confirm again.");
+        return;
+      }
+      const freshQuote = tryQuoteCopy(copyMarketOf(freshMarket.market), side, amountRaw, estimateYesBps);
+      if (!freshQuote) {
+        setStatusMessage("This amount can't be quoted on the current market. Try a smaller amount.");
+        return;
+      }
+      if (freshQuote.edgeAfterBps <= 0n) {
+        setStatusMessage("The market has moved past the agent's estimate, so copying now would buy with no edge. Nothing was sent.");
+        return;
+      }
+      if (freshQuote.edgeAfterBps < MIN_EDGE_WARN_BPS && !acknowledgeThinEdge) {
+        setStatusMessage("The remaining edge is thin. Tick the box above to confirm you still want to copy this trade.");
         return;
       }
 
@@ -381,11 +468,79 @@ function CopyTradeContent() {
 
             <div className="space-y-3">
               <div className="flex justify-between items-end flex-wrap gap-2">
-                <label className="font-label-caps text-label-caps text-on-surface-variant uppercase text-[10px]">Share of your USDC balance (%)</label>
+                <label className="font-label-caps text-label-caps text-on-surface-variant uppercase text-[10px]">Amount to copy</label>
                 <span className="font-data-mono text-data-mono text-primary font-bold text-xs sm:text-sm">
-                  {allocation.toFixed(2)}% ({amountRaw !== null ? `${formatUsdc(amountRaw, { maxDecimals: 2, minDecimals: 2, grouping: true })} USDC` : isConnected ? "loading balance…" : "connect a wallet"})<PendingValue state={balanceState.data} />
+                  {amountRaw !== null ? `${formatUsdc(amountRaw, { maxDecimals: 2, minDecimals: 2, grouping: true })} USDC` : isConnected ? "loading balance…" : "connect a wallet"}
+                  {choice && choice.limitedBy !== "none" && (
+                    <span className="block text-[10px] font-normal text-on-surface-variant">limited by your {choice.limitedBy}</span>
+                  )}
+                  <PendingValue state={balanceState.data} />
                 </span>
               </div>
+              <div role="radiogroup" aria-label="How much to copy" className="grid grid-cols-3 gap-2">
+                {SIZING_OPTIONS.map((option) => (
+                  <button
+                    key={option.kind}
+                    type="button"
+                    role="radio"
+                    aria-checked={sizingKind === option.kind}
+                    onClick={() => setSizingKind(option.kind)}
+                    className={`px-3 py-2 text-[11px] font-bold border rounded transition-all ${
+                      sizingKind === option.kind
+                        ? "border-primary border-2 bg-white text-primary"
+                        : "border-outline-variant bg-white hover:border-primary text-on-surface-variant"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              {sizingKind === "fixed" && (
+                <div className="space-y-1">
+                  <label htmlFor="fixed-amount" className="text-[11px] text-on-surface-variant">Amount in USDC</label>
+                  <input
+                    id="fixed-amount"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={fixedInput}
+                    onChange={(e) => setFixedInput(e.target.value)}
+                    placeholder="e.g. 25"
+                    aria-invalid={fixedInput.trim() !== "" && fixedAmount === null}
+                    className="w-full border border-outline-variant rounded px-3 py-2 font-data-mono text-sm bg-white"
+                  />
+                  {fixedInput.trim() !== "" && fixedAmount === null && (
+                    <p className="text-[11px] text-error">Enter an amount like 10 or 2.5 (up to 7 decimal places).</p>
+                  )}
+                </div>
+              )}
+              {sizingKind === "mirror" && (
+                <p className="text-[11px] text-on-surface-variant">
+                  {typeof trace?.betFraction === "number" ? (
+                    `The agent bet ${(trace.betFraction * 100).toFixed(1)}% of its bankroll. You copy the same share of your balance, capped as below.`
+                  ) : (
+                    <>Unlock this trace to mirror the agent&apos;s size. <Link href="/premium" className="underline">See access options</Link></>
+                  )}
+                </p>
+              )}
+              <div className="space-y-1">
+                <label htmlFor="trade-cap" className="text-[11px] text-on-surface-variant">Never spend more than (USDC, optional)</label>
+                <input
+                  id="trade-cap"
+                  inputMode="decimal"
+                  autoComplete="off"
+                  value={capInput}
+                  onChange={(e) => setCapInput(e.target.value)}
+                  placeholder="No cap"
+                  aria-invalid={capInput.trim() !== "" && userCap === null}
+                  className="w-full border border-outline-variant rounded px-3 py-2 font-data-mono text-sm bg-white"
+                />
+                {capInput.trim() !== "" && userCap === null && (
+                  <p className="text-[11px] text-error">Enter an amount like 10 or 2.5.</p>
+                )}
+              </div>
+              {choice?.unavailable && sizingKind === "mirror" && <p className="text-[11px] text-error">{choice.unavailable}</p>}
+              {sizingKind === "percent" && (
+              <>
               <div
                 ref={sliderRef}
                 className="relative h-2 bg-surface-container rounded-full cursor-pointer touch-none focus:outline-none focus:ring-2 focus:ring-primary"
@@ -393,8 +548,9 @@ function CopyTradeContent() {
                 tabIndex={0}
                 aria-label="Share of your USDC balance"
                 aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Number(allocation.toFixed(2))}
+                aria-valuemax={10000}
+                aria-valuenow={allocationBps}
+                aria-valuetext={`${bpsToPercent(allocationBps, 2)} of your balance${amountRaw !== null ? `, ${formatUsdc(amountRaw, { maxDecimals: 2, minDecimals: 2, grouping: true })} USDC` : ""}`}
                 onKeyDown={onSliderKey}
                 onMouseDown={onMouseDown}
                 onTouchStart={(e) => handleSliderInteraction(e.touches[0].clientX)}
@@ -410,6 +566,8 @@ function CopyTradeContent() {
                 <span>75%</span>
                 <span>100%</span>
               </div>
+              </>
+              )}
             </div>
 
             <div className="p-4 bg-surface-container-low rounded-lg space-y-4">
@@ -483,7 +641,50 @@ function CopyTradeContent() {
             </div>
 
             <div className="space-y-3">
+              {localQuote && estimateSideBps !== null && (
+                <div className="p-4 border border-outline-variant rounded-lg bg-white space-y-2">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 font-data-mono text-xs text-on-surface-variant">
+                    <span>Agent estimate <span className="font-bold text-on-surface">{bpsToPercent(estimateSideBps)}</span></span>
+                    <span>Your avg price <span className="font-bold text-on-surface">{bpsToPercent(localQuote.avgPriceBps)}</span></span>
+                    <span className={localQuote.edgeAfterBps > 0n ? "font-bold text-secondary" : "font-bold text-error"}>
+                      Remaining edge {formatEdge(localQuote.edgeAfterBps)}
+                    </span>
+                  </div>
+                  {maxForEdge !== null && amountRaw !== null && maxForEdge > 0n && maxForEdge < amountRaw && (
+                    <button
+                      type="button"
+                      className="text-xs text-primary underline"
+                      onClick={() => {
+                        setSizingKind("fixed");
+                        setFixedInput(formatUsdc(maxForEdge, { maxDecimals: 2 }));
+                      }}
+                    >
+                      Use max with edge ({formatUsdc(maxForEdge, { maxDecimals: 2 })} USDC keeps at least {formatEdge(MIN_EDGE_WARN_BPS)})
+                    </button>
+                  )}
+                  {quote.data !== undefined && quote.data !== localQuote.sharesOut && (
+                    <p className="text-[11px] text-on-surface-variant">Price moved, recalculated from the chain. The on-chain quote is used for the minimum shares.</p>
+                  )}
+                </div>
+              )}
+
               {/* Blocking warnings */}
+              {edgeBlocked && (
+                <div className="rounded-2xl border border-error/20 bg-error-container/10 p-3 text-xs text-error font-medium" role="alert">
+                  The market has moved past the agent&apos;s estimate, so copying now would buy with no edge.
+                </div>
+              )}
+              {thinEdge && localQuote && (
+                <label className="flex items-start gap-2 rounded-2xl border border-outline-variant bg-surface p-3 text-xs text-on-surface">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5"
+                    checked={acknowledgeThinEdge}
+                    onChange={(e) => setAcknowledgeThinEdge(e.target.checked)}
+                  />
+                  <span>The remaining edge is only {formatEdge(localQuote.edgeAfterBps)}. I still want to copy this trade.</span>
+                </label>
+              )}
               {isConnected && isUnfunded && (
                 <div className="rounded-2xl border border-error/20 bg-error-container/10 p-3 text-xs text-error font-medium" role="alert">
                   Fund this account with XLM first.
@@ -534,6 +735,8 @@ function CopyTradeContent() {
                     isSubmitting ||
                     buy.isPending ||
                     !side ||
+                    edgeBlocked ||
+                    (thinEdge && !acknowledgeThinEdge) ||
                     (isConnected && isUnfunded) ||
                     (isConnected && isInsufficientXlm)
                   }
