@@ -14,6 +14,7 @@ import { WalletInterpreter } from "./wallet-interpreter";
 import { viewOf } from "./wallet-machine";
 import { TransactionTrackerProvider } from "./tx-tracker";
 import { storedPushWallet, unsubscribe as unsubscribePush } from "@/lib/notifications/push";
+import { LedgerInvalidator } from "./ledger-invalidation";
 
 export interface OpenModalOptions {
   /**
@@ -230,6 +231,15 @@ export function WalletProvider({ children, kitLoader = loadStellarWalletsKit }: 
     const stored = storedPushWallet();
     if (stored && stored !== address && !view.isConnecting) void unsubscribePush().catch(() => {});
   }, [address, view.isConnecting]);
+
+  // Event-driven invalidation heartbeat
+  useEffect(() => {
+    const invalidator = new LedgerInvalidator({
+      queryClient,
+      getUserAddress: () => address,
+    });
+    return invalidator.start();
+  }, [queryClient, address]);
 
   const signer = useMemo<Signer | null>(() => {
     if (!address) return null;

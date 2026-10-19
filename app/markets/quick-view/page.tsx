@@ -11,7 +11,7 @@ import { getMarketByOnChainId } from "@/lib/api/markets";
 import { ApiError } from "@/lib/api/client";
 import { useOnChainMarket, usePosition } from "@/lib/hooks/useStellar";
 import { useWalletAddress } from "@/lib/contexts/WalletContext";
-import { useLedgerNow as useLedgerClock } from "@/lib/stellar/ledger-clock";
+import { ledgerClock, useLedgerNow as useLedgerClock } from "@/lib/stellar/ledger-clock";
 import { formatUsdc } from "@/lib/stellar/units";
 import { MIN_TX_TIMEOUT_S, SAFETY_MARGIN_S } from "@/lib/stellar/deadline";
 import { TradeTape } from "@/components/market/trade-tape";
@@ -70,9 +70,10 @@ function MarketQuickViewContent() {
   const yesProb = view ? Math.round(view.yesBps / 100) : backendProb;
   const noProb = 100 - yesProb;
   const chainStatus = view?.market.status;
-  const secondsToClose = ledger.now !== null && view ? Number(view.market.close_time - BigInt(Math.floor(ledger.now))) : null;
+  const nowLedgerTime = ledgerClock.estimateNow().time;
+  const secondsToClose = view ? Number(view.market.close_time) - nowLedgerTime : null;
   const countdown = secondsToClose !== null && secondsToClose >= 0 && secondsToClose < 3600 ? `Closes in ${Math.floor(secondsToClose / 60)}m ${secondsToClose % 60}s` : null;
-  const isOpen = chainStatus?.tag === "Open" && Number(view?.market.close_time ?? 0) * 1000 > chain.dataUpdatedAt;
+  const isOpen = chainStatus?.tag === "Open" && Number(view?.market.close_time ?? 0) > nowLedgerTime;
 
   const isLoading = backendById.isLoading || (backendByChainId.isLoading && !marketId) || (chain.isLoading && !market);
   const notFound = !market && !view;

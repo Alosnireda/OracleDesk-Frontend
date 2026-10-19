@@ -180,3 +180,13 @@ Cached (namespace `shell-<BUILD_ID>`): prerendered route HTML (network-first, 4 
 Never cached or intercepted: any other origin (backend, Soroban RPC, socket.io, IPFS, x402, wallets), requests with `Authorization` or `Range`, non-GET, `/api/`, `/socket.io`.
 
 Update rule: the worker never calls `skipWaiting()` itself. When a new one is waiting, a non-dismissable banner asks the user to reload, and `useWriteGuard` refuses to sign ("Reload to update OracleDesk before signing.") until they do.
+
+## Ledger Heartbeat & Event-Driven Invalidation
+
+Instead of independent intervals across components, `LedgerClock` (`lib/stellar/ledger-clock.ts`) runs a singleton heartbeat querying `getLatestLedger` roughly every 5 seconds while visible.
+
+- **Visibility-Aware**: Polling immediately halts when the tab is hidden and resumes when visible.
+- **Exponential Backoff**: Success resets the interval to 5s; RPC failures back off through 10s, 20s, up to 60s with jitter.
+- **Event-Driven Invalidation**: Mounted in `WalletProvider` via `LedgerInvalidator` (`lib/stellar/ledger-invalidation.ts`). On new ledgers, `getEvents` queries `marketCore` and `usdc` to invalidate queries matching affected market IDs and user balances. Gaps > 120 ledgers perform a broad invalidation.
+- **Query Cache Policies**: On-chain queries have `staleTime: Infinity` with a 5-minute fallback poll; backend queries set `refetchIntervalInBackground: false`.
+

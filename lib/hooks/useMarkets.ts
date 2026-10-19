@@ -16,6 +16,7 @@ export function useMarkets(params: ListMarketsParams = {}) {
     queryFn: () => listMarkets(params),
     staleTime: 30_000,
     refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -26,6 +27,7 @@ export function useInfiniteMarkets(params: Omit<ListMarketsParams, "page"> = {})
     initialPageParam: 1,
     getNextPageParam: (lastPage) => nextPageParam(lastPage.meta),
     staleTime: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 
