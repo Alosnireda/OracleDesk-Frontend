@@ -1,17 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
-import { useWallet } from "@/lib/contexts/WalletContext";
-import { NETWORK_LABEL } from "@/lib/stellar/config";
-import { shortAddress } from "@/lib/stellar/units";
-import {
-  MAX_SLIPPAGE_BPS,
-  SLIPPAGE_PRESET_BPS,
-  parseSlippagePercent,
-  type NotificationSettings,
-} from "@/lib/settings/settings";
-import { useSettings } from "@/lib/settings/useSettings";
+import Image from "next/image";
+import { PushSettings } from "@/components/settings/push-settings";
 
 const SettingsSection = ({ title, icon, children, className = "" }: { title: string; icon: string; children: React.ReactNode; className?: string }) => (
   <section className={`bg-surface-container-lowest border border-outline-variant p-6 rounded-lg transition-all hover:shadow-sm ${className}`}>
@@ -39,33 +30,8 @@ const ToggleSwitch = ({ checked, onChange, label, sublabel }: { checked: boolean
 );
 
 export default function SettingsPage() {
-  const wallet = useWallet();
-  const { settings, setSlippageBps, setNotifications } = useSettings(wallet.address);
-  const [customInput, setCustomInput] = useState("");
-  const [customError, setCustomError] = useState<string | null>(null);
-
-  const applyCustomSlippage = (value: string) => {
-    setCustomInput(value);
-    if (!value.trim()) {
-      setCustomError(null);
-      return;
-    }
-    const bps = parseSlippagePercent(value);
-    if (bps === null) {
-      setCustomError(
-        `Enter a percentage between 0% and ${(MAX_SLIPPAGE_BPS / 100).toFixed(0)}% with at most two decimal places.`,
-      );
-      return;
-    }
-    setCustomError(null);
-    setSlippageBps(bps);
-  };
-
-  const notificationRows: { key: keyof NotificationSettings; label: string; sublabel: string }[] = [
-    { key: "execution", label: "Execution Alerts", sublabel: "Confirmations and failures of trades you submit." },
-    { key: "news", label: "Market News Insights", sublabel: "New reasoning traces and market updates." },
-    { key: "shifts", label: "Probability Shifts (>5%)", sublabel: "When a market's probability moves more than five points." },
-  ];
+  const [slippage, setSlippage] = useState("0.5%");
+  const [autoApprove, setAutoApprove] = useState(false);
 
   return (
     <main className="flex-grow pt-8 pb-20 px-gutter max-w-container-max-width mx-auto w-full">

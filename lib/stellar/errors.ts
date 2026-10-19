@@ -175,6 +175,9 @@ export function describeError(err: unknown, contract: ContractName = "marketCore
   const named = Object.keys(FRIENDLY).find((n) => new RegExp(`\\b${n}\\b`).test(text));
   if (named) return { kind: "contract", code: named, message: FRIENDLY[named] };
 
+  if (/\b429\b|too many requests|rate.?limit/i.test(text)) {
+    return { kind: "network", code: "rate-limited", message: "The Stellar network is busy right now. Try again in a moment." };
+  }
   if (/Failed to fetch|NetworkError|ECONNREFUSED|timed? ?out|ETIMEDOUT/i.test(text)) {
     return { kind: "network", message: "Couldn't reach the Stellar network. Check your connection and try again." };
   }

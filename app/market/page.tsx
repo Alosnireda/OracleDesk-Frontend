@@ -16,31 +16,51 @@ import {
 
 const MarketHeader = () => {
   return (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="px-2 py-0.5 bg-primary-container text-on-primary-container font-label-caps text-[10px] rounded">POLITICS</span>
-          <span className="text-on-surface-variant font-data-mono text-label-caps">#MKT-9204</span>
+    <div className="flex flex-col gap-6 mb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 bg-primary-container text-on-primary-container font-label-caps text-[10px] rounded">POLITICS</span>
+            <span className="text-on-surface-variant font-data-mono text-label-caps">#MKT-9204</span>
+          </div>
+          <h1 className="font-display-lg text-display-lg text-on-background max-w-3xl">Will the US Federal Reserve lower rates by 50bps in Q4?</h1>
         </div>
-        <h1 className="font-display-lg text-display-lg text-on-background max-w-3xl">Will the US Federal Reserve lower rates by 50bps in Q4?</h1>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 border-l border-outline-variant pl-8">
+          <div>
+            <p className="font-label-caps text-label-caps text-on-surface-variant mb-1">PROBABILITY</p>
+            <p className="font-headline-md text-headline-md text-secondary">64.2%</p>
+          </div>
+          <div>
+            <p className="font-label-caps text-label-caps text-on-surface-variant mb-1">VOLUME 24H</p>
+            <p className="font-headline-md text-headline-md text-on-surface">$2.4M</p>
+          </div>
+          <div>
+            <p className="font-label-caps text-label-caps text-on-surface-variant mb-1">LIQUIDITY</p>
+            <p className="font-headline-md text-headline-md text-on-surface">$14.1M</p>
+          </div>
+          <div>
+            <p className="font-label-caps text-label-caps text-on-surface-variant mb-1">END DATE</p>
+            <p className="font-headline-md text-headline-md text-on-surface">DEC 31</p>
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 border-l border-outline-variant pl-8">
-        <div>
-          <p className="font-label-caps text-label-caps text-on-surface-variant mb-1">PROBABILITY</p>
-          <p className="font-headline-md text-headline-md text-secondary">64.2%</p>
-        </div>
-        <div>
-          <p className="font-label-caps text-label-caps text-on-surface-variant mb-1">VOLUME 24H</p>
-          <p className="font-headline-md text-headline-md text-on-surface">$2.4M</p>
-        </div>
-        <div>
-          <p className="font-label-caps text-label-caps text-on-surface-variant mb-1">LIQUIDITY</p>
-          <p className="font-headline-md text-headline-md text-on-surface">$14.1M</p>
-        </div>
-        <div>
-          <p className="font-label-caps text-label-caps text-on-surface-variant mb-1">END DATE</p>
-          <p className="font-headline-md text-headline-md text-on-surface">DEC 31</p>
-        </div>
+
+      {/* Quick Links */}
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/market/9204/trace-history"
+          className="px-4 py-2 bg-surface-container border border-outline-variant text-on-surface rounded font-label-caps text-label-caps hover:bg-surface-container-high transition-colors flex items-center gap-2"
+        >
+          <span className="material-symbols-outlined text-base">history</span>
+          Trace History
+        </Link>
+        <Link
+          href="/market/9204/trades"
+          className="px-4 py-2 bg-surface-container border border-outline-variant text-on-surface rounded font-label-caps text-label-caps hover:bg-surface-container-high transition-colors flex items-center gap-2"
+        >
+          <span className="material-symbols-outlined text-base">link</span>
+          Trade Attribution
+        </Link>
       </div>
     </div>
   );

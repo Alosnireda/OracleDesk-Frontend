@@ -28,6 +28,7 @@ import { useLedgerNow as useLedgerClock } from "@/lib/stellar/ledger-clock";
 import { MIN_TX_TIMEOUT_S, SAFETY_MARGIN_S } from "@/lib/stellar/deadline";
 import { TradeTape } from "@/components/market/trade-tape";
 import { PendingValue } from "@/components/pending-value";
+import { PushVerifiedStatus } from "@/components/push-verified-status";
 
 const SourceTag = ({ source }: { source: "chain" | "backend" }) => (
   <span
@@ -87,6 +88,7 @@ function MarketQuickViewContent() {
   const marketId = searchParams.get("marketId");
   const onChainIdParam = searchParams.get("onChainId");
   const initialSide = searchParams.get("side") === "NO" ? "No" : "Yes";
+  const fromPush = searchParams.get("from") === "push";
 
   const backendById = useMarket(marketId ?? undefined);
   // Opened from an on-chain id: the backend may or may not know this market.
@@ -395,6 +397,7 @@ function MarketQuickViewContent() {
                   </h2>
                 </div>
 
+                {fromPush && view && <PushVerifiedStatus marketId={view.id} market={view.market} position={position.data ?? null} />}
                 {/* 24h Performance & Stats */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center">
                   <div className="space-y-1">
@@ -403,6 +406,9 @@ function MarketQuickViewContent() {
                       <SourceTag source={fromChain ? "chain" : "backend"} />
                     </div>
                     <p className="font-label-caps text-label-caps text-outline uppercase font-bold tracking-wider">YES price</p>
+                    {view?.ledger != null && (
+                      <p className="text-[11px] text-outline font-data-mono">as of ledger {view.ledger.toLocaleString()}</p>
+                    )}
                   </div>
                   {/* Sparkline Simulation */}
                   <div className="h-16 relative w-full" aria-hidden="true" title="Illustration; price history isn't indexed yet">
