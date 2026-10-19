@@ -696,8 +696,21 @@ function confirmedAmount(value: xdr.ScVal | undefined): bigint {
 function useTxRunner(contract: ContractName) {
   const [runner] = useState(() => new TxLifecycle<unknown>({ server: () => rpcServer(), contract }));
   const phase = useSyncExternalStore(runner.subscribe, runner.getSnapshot, runner.getSnapshot);
-  const start = useCallback(<T, R = T>(tx: AssembledTransaction<T>, parse: (v: xdr.ScVal | undefined) => R, onHash?: (hash: string) => void) =>
-    runner.run(tx as AssembledTransaction<unknown>, parse, onHash) as Promise<{ value: R; txHash: string; ledger: number }>, [runner]);
+  const start = useCallback(<T, R = T>(tx: AssembledTransaction<T>, parse: (v: xdr.ScVal | undefined) => R, onHash?: (hash: string) => void) => {
+    const run = runner.run(tx as AssembledTransaction<unknown>, parse, onHash) as Promise<{ value: R; txHash: string; ledger: number }>;
+    if (!DEBUG_ENABLED) return run;
+    const method = `submit:${String((tx as { options?: { method?: string } }).options?.method ?? "tx")}`;
+    return run.then(
+      (r) => {
+        recordSimulation({ ...simRecord(contract, method, tx as AssembledTransaction<unknown>), txHash: r.txHash });
+        return r;
+      },
+      (err) => {
+        recordSimulation({ ...simRecord(contract, method, tx as AssembledTransaction<unknown>), error: describeError(err, contract).message });
+        throw err;
+      },
+    );
+  }, [runner, contract]);
   return { phase, start };
 }
 

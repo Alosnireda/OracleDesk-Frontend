@@ -12,6 +12,8 @@ export interface WalletKitAdapter {
   disconnect(): Promise<void>;
   onStateUpdated(cb: (payload: { address: string | null; passphrase: string | null }) => void): () => void;
   onDisconnect(cb: () => void): () => void;
+  /** Id of the wallet module the user picked (e.g. "freighter"), when the kit exposes it. Diagnostics only. */
+  selectedModuleId?(): string | null;
 }
 
 let loading: Promise<WalletKitAdapter> | null = null;
@@ -79,6 +81,16 @@ export function loadStellarWalletsKit(): Promise<WalletKitAdapter> {
           cb({ address: payload.address ?? null, passphrase: payload.networkPassphrase || null }),
         ),
       onDisconnect: (cb) => StellarWalletsKit.on(KitEventType.DISCONNECT, () => cb()),
+      // Read defensively: the selected-module getter's shape is not part of the
+      // kit's documented surface, so never let it throw.
+      selectedModuleId: () => {
+        try {
+          const kit = StellarWalletsKit as unknown as { selectedModule?: { productId?: string; id?: string } };
+          return kit.selectedModule?.productId ?? kit.selectedModule?.id ?? null;
+        } catch {
+          return null;
+        }
+      },
     };
     return adapter;
   })();

@@ -201,3 +201,25 @@ d. **Submit at threshold:**
 - [ ] Let a prepared session expire (or prepare with a 20 s window in dev): submit fails with “This transaction expired before it was submitted. Prepare it again with a fresh quote.” (`tx_too_late`).
 - [ ] Repeat for the daily-pass USDC `transfer` on `/premium`: check “Use multisig”, **Prepare multisig payment**, collect 2 signatures, submit. The backend `unlock` still verifies the transfer afterwards.
 - [ ] If the market’s `close_time` passes first, the trade fails with MarketClosed (error 9); the review shows close time next to expiry and caps the window at close time.
+
+## PWA / offline (#128)
+
+1. `npm run build && npm start`, open http://localhost:3000 in Chrome. DevTools → Application → Manifest shows no errors; the install icon appears. Install on Chrome desktop and on Android Chrome.
+2. Application → Service workers: `/sw.js?v=<id>` is active. Cache Storage `shell-<id>` holds routes and `/_next/static` files only.
+3. Network → Offline. Navigate /markets, /portfolio, /reasoning: cached shell or the offline page, never the browser error page. Network tab: RPC/backend/socket.io requests are not "(ServiceWorker)".
+4. Rebuild and restart, reload: the update banner appears; a buy fails with "Reload to update OracleDesk before signing." until Reload.
+5. `npm run dev`: no worker is registered.
+
+## Push notifications (#130)
+
+Needs a backend implementing the contract in the PR description.
+- Chrome / Firefox desktop: /settings → Notifications → Turn on (permission prompt, wallet sign-in). "Send test notification" shows a system notification. Trigger a trade/resolution: the notification opens /markets/quick-view?onChainId=…&from=push with the on-chain verified status.
+- Android Chrome: same as desktop.
+- iOS 16.4+: in Safari the panel says to add to Home Screen; after Share → Add to Home Screen, open from the icon and enable.
+- Block notifications in site settings: the panel shows recovery copy.
+- Disconnect or switch wallet: the subscription is removed (DevTools → Application → Push shows none).
+
+## RPC failover (#126) and debug panel (#127)
+
+- Set `NEXT_PUBLIC_STELLAR_RPC_URLS=https://invalid.example,https://soroban-testnet.stellar.org`, open `?debug=rpc`; block one host in DevTools and watch failover. A buy during the switch uses one host.
+- `?debug=1` or Ctrl/Cmd+Shift+D opens the debug panel; "Copy diagnostics" previews redacted JSON.

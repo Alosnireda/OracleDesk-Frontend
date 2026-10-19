@@ -178,6 +178,8 @@ export class RpcPool {
 
   /** True when no endpoint is healthy (for the "Stellar RPC is degraded" banner). */
   isDegraded(): boolean {
+    // Nothing measured yet (first load): don't cry wolf.
+    if (this.snapshot.every((s) => s.lastCheckedAt === 0)) return false;
     return this.snapshot.length > 0 && !this.snapshot.some((s) => s.state === "healthy" || (s.state === "unverified" && this.snapshot.length === 1));
   }
 

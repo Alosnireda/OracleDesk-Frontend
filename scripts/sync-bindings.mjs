@@ -75,6 +75,28 @@ for (const [src, name] of FILES) {
   console.log(`wrote       ${relative(ROOT, to)}`);
 }
 
+// Binding provenance the running app can report (debug panel / diagnostics).
+// Must match JSON.stringify(..., null, 2) + "\n" exactly so --check is stable.
+{
+  const to = join(DEST, "provenance.json");
+  const expected =
+    JSON.stringify(
+      { contractsCommit: commit, files: Object.fromEntries(FILES.map(([src, name]) => [name, `oracledesk-stellar/${src}`])) },
+      null,
+      2,
+    ) + "\n";
+  const current = existsSync(to) ? readFileSync(to, "utf8") : null;
+  if (current === expected) {
+    if (!check) console.log(`up to date  ${relative(ROOT, to)}`);
+  } else if (check) {
+    console.error(`stale       ${relative(ROOT, to)}`);
+    stale++;
+  } else {
+    writeFileSync(to, expected);
+    console.log(`wrote       ${relative(ROOT, to)}`);
+  }
+}
+
 if (check) {
   if (stale > 0) {
     console.error(`\n${stale} generated file(s) are stale. Run: npm run sync:bindings`);
