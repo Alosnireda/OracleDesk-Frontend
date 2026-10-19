@@ -3,6 +3,8 @@ import type { MarketCategory, SettlementCurrency } from "./markets";
 
 export type AgentType = "MARKET_MAKER" | "TRADER";
 export type UnlockType = "PER_TRACE" | "DAILY_PASS";
+/** What the caller currently has access to for a trace (docs/api.md `GET /traces/:id`). */
+export type TraceAccessLevel = "FREE_PREVIEW" | "PER_TRACE" | "DAILY_PASS" | "NO_ACCESS";
 
 export interface ReasoningSource {
   source: string;
@@ -26,7 +28,12 @@ export interface ReasoningTrace {
   /** reasoning-registry trace id; null until published on-chain. */
   onChainTraceId?: string | null;
   publishTxHash?: string | null;
-  accessLevel?: "FREE_PREVIEW" | "PER_TRACE" | "DAILY_PASS" | "NO_ACCESS";
+  accessLevel?: TraceAccessLevel;
+  /** Field names the backend locked for this caller's access level. */
+  lockedFields?: string[];
+  /** Per-trace unlock price in 7-decimal base units, as a decimal string. */
+  unlockPriceRaw?: string;
+  /** Daily-pass price in 7-decimal base units, as a decimal string. */
   dailyPassPriceRaw?: string;
   previewSources: ReasoningSource[] | null;
   sourcesUsed?: ReasoningSource[];
@@ -64,6 +71,27 @@ export interface SpendingAllowance {
   dailyLimit: number;
   perTraceLimit: number;
   currency: SettlementCurrency;
+}
+
+/**
+ * A verified payment recorded by the backend (`GET /traces/payments`, the
+ * user's last 100 events, newest first). The backend enforces a unique
+ * `txHash`; `type`, `amountRaw` (7-decimal base units) and `createdAt` mirror
+ * the `POST /traces/:id/unlock` request and its verification, per docs/api.md.
+ * Only these fields are relied on for rendering; anything else stays optional.
+ */
+export interface PaymentEvent {
+  id?: string;
+  type: UnlockType;
+  /** USDC moved by the verified transaction, in 7-decimal base units. */
+  amountRaw: string;
+  /** 64-hex Stellar transaction hash; unique across all payments. */
+  txHash: string;
+  /** Backend trace id this payment was recorded against; null for pass-all payments. */
+  traceId?: string | null;
+  walletAddress?: string;
+  currency?: SettlementCurrency;
+  createdAt: string;
 }
 
 export async function listTraces(params: ListTracesParams = {}) {
@@ -113,6 +141,6 @@ export async function setSpendingAllowance(allowance: {
 }
 
 export async function getPaymentEvents() {
-  const { data } = await apiClient.get<unknown[]>("/traces/payments");
+  const { data } = await apiClient.get<PaymentEvent[]>("/traces/payments");
   return data;
 }

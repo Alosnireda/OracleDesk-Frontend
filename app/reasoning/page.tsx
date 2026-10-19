@@ -192,7 +192,7 @@ const ReasoningCard = ({
             View Agent Profile
           </Link>
         </div>
-        <Link href="/premium/trace" className="flex items-center gap-2 text-primary font-bold font-label-caps text-label-caps border border-primary px-4 py-2 rounded hover:bg-primary-fixed-dim/10">
+        <Link href={`/premium/trace?traceId=${id}`} className="flex items-center gap-2 text-primary font-bold font-label-caps text-label-caps border border-primary px-4 py-2 rounded hover:bg-primary-fixed-dim/10">
           <span className="material-symbols-outlined">lock_open</span>
           Unlock Premium Trace
         </Link>

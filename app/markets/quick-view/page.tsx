@@ -16,10 +16,11 @@ import { ApiError } from "@/lib/api/client";
 import { useBuy, useOnChainMarket, usePosition, useQuoteBuy, useUsdcBalance, useAccountReserve, usePrepareBuy, useMarketConfig, useLedgerNow, useEnableUsdc, useUsdcTrustline, useExactBuyQuote, usePositionState, useUsdcBalanceState, useAccountAuth, usePrepareMultisig } from "@/lib/hooks/useStellar";
 import { useWallet } from "@/lib/contexts/WalletContext";
 import { explorerTx } from "@/lib/stellar/config";
-import { formatUsdc, formatXlm, maxIn, minOut, tryParseUsdc } from "@/lib/stellar/units";
+import { formatUsdc, formatXlm, bpsToPercent, maxIn, minOut, tryParseUsdc } from "@/lib/stellar/units";
 import { buyBreakdown } from "@/lib/stellar/buy-breakdown";
 import { isMultisigAccount, MULTISIG_DEFAULT_SLIPPAGE_BPS, type MultisigSession } from "@/lib/stellar/multisig";
 import { MultisigReview } from "@/components/multisig-review";
+import { useSettings } from "@/lib/settings/useSettings";
 
 import type { TxPhase } from "@/lib/stellar/tx-lifecycle";
 import { preflightBuy } from "@/lib/stellar/preflight";
@@ -28,8 +29,6 @@ import { MIN_TX_TIMEOUT_S, SAFETY_MARGIN_S } from "@/lib/stellar/deadline";
 import { TradeTape } from "@/components/market/trade-tape";
 import { PendingValue } from "@/components/pending-value";
 import { PushVerifiedStatus } from "@/components/push-verified-status";
-
-const SLIPPAGE_BPS = 100; // 1%
 
 const SourceTag = ({ source }: { source: "chain" | "backend" }) => (
   <span
@@ -104,6 +103,10 @@ function MarketQuickViewContent() {
   const chain = useOnChainMarket(onChainMarketId);
 
   const { address, isConnected, isWrongNetwork, openModal } = useWallet();
+  // Saved in /settings; useSyncExternalStore makes it available before the
+  // first visible quote even though pages are statically prerendered.
+  const { settings } = useSettings(address);
+  const slippageBps = settings.slippageBps;
   const position = usePosition(onChainMarketId, address);
   const balance = useUsdcBalance(address);
   const reserve = useAccountReserve(address);
@@ -142,7 +145,7 @@ function MarketQuickViewContent() {
   const exactQuote = useExactBuyQuote(onChainMarketId, side, buyMode === "shares" ? debouncedAmount : null);
   const spendRaw = buyMode === "shares" ? exactQuote.data?.collateralIn ?? null : amountRaw;
   const quote = useQuoteBuy(onChainMarketId, side, buyMode === "usdc" ? debouncedAmount : spendRaw);
-  const prepareBuy = usePrepareBuy({ marketId: onChainMarketId, outcome: side, collateralIn: spendRaw, slippageBps: SLIPPAGE_BPS, holder: address });
+  const prepareBuy = usePrepareBuy({ marketId: onChainMarketId, outcome: side, collateralIn: spendRaw, slippageBps, holder: address });
   const fees = prepareBuy.data?.fees;
   const isUnfunded = reserve.data?.funded === false;
   const isInsufficientXlm = !!(reserve.data?.funded && fees && fees.totalFee > reserve.data.spendable);
@@ -243,7 +246,7 @@ function MarketQuickViewContent() {
         outcome: side,
         collateralIn: spendRaw ?? 0n,
         review,
-        slippageBps: SLIPPAGE_BPS,
+        slippageBps,
         prepared: prepareBuy.data,
       });
       setBuyStatus(
@@ -499,13 +502,13 @@ function MarketQuickViewContent() {
                         {amountRaw === null
                           ? buyMode === "usdc" ? "Enter an amount like 10 or 2.5" : "Enter a share amount"
                           : buyMode === "shares" && exactQuote.data
-                            ? `Costs ≈ ${formatUsdc(exactQuote.data.collateralIn, { maxDecimals: 2 })} USDC (fee ${formatUsdc(exactQuote.data.fee, { maxDecimals: 2 })}), at most ${formatUsdc(maxIn(exactQuote.data.collateralIn, SLIPPAGE_BPS), { maxDecimals: 2 })} with 1% slippage`
+                            ? `Costs ≈ ${formatUsdc(exactQuote.data.collateralIn, { maxDecimals: 2 })} USDC (fee ${formatUsdc(exactQuote.data.fee, { maxDecimals: 2 })}), at most ${formatUsdc(maxIn(exactQuote.data.collateralIn, slippageBps), { maxDecimals: 2 })} with ${bpsToPercent(slippageBps)} slippage`
                             : buyMode === "shares" && exactQuote.error
                               ? exactQuote.error.message
                               : buyMode === "shares" && exactQuote.isFetching
                                 ? "Quoting exact share amount…"
                                 : quote.data !== undefined
-                            ? `≈ ${formatUsdc(quote.data, { maxDecimals: 2 })} shares, at least ${formatUsdc(minOut(quote.data, SLIPPAGE_BPS), { maxDecimals: 2 })} (1% slippage)`
+                            ? `≈ ${formatUsdc(quote.data, { maxDecimals: 2 })} shares, at least ${formatUsdc(minOut(quote.data, slippageBps), { maxDecimals: 2 })} (${bpsToPercent(slippageBps)} slippage)`
                             : quote.error ? quote.error.message : quote.isFetching ? "Quoting…" : ""}
                       </span>
                       {balance.data !== undefined && <span>Balance {formatUsdc(balance.data, { maxDecimals: 2, grouping: true })}<PendingValue state={balanceState.data} /></span>}

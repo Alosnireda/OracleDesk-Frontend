@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { usePortfolio, usePositions } from "@/lib/hooks/usePortfolio";
+import { useMyPositions } from "@/lib/hooks/useMyPositions";
 import { formatUsdc } from "@/lib/stellar/units";
 import { useWallet } from "@/lib/contexts/WalletContext";
 import { useRedeemAll, type PreparedWriteReview } from "@/lib/hooks/useStellar";
@@ -163,6 +164,7 @@ export default function PortfolioPage() {
   const { data: summary, isLoading: isSummaryLoading } = usePortfolio();
   const { data: positionsData, isLoading: isPositionsLoading } = usePositions({ status });
   const positions = positionsData?.positions ?? [];
+  const myPositions = useMyPositions();
   const currentRedeemIds = new Set(redeemBatch.discovery?.redeemables.map((item) => item.marketId.toString()) ?? []);
   const currentRedeemed = redeemBatch.discovery?.redeemables.filter(
     (item) => redeemBatch.states[item.marketId.toString()]?.s === "redeemed",
@@ -207,14 +209,18 @@ export default function PortfolioPage() {
       <section className="mb-8 flex flex-col md:flex-row justify-between items-end gap-6">
         <div>
           <h1 className="font-display-lg text-display-lg text-on-background mb-1">Portfolio Performance</h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">Institutional grade overview of your prediction market exposure.</p>
+          <p className="font-body-md text-body-md text-on-surface-variant">
+            The figures below summarise the OracleDesk agent&apos;s book. Your own wallet holdings are listed under
+            &ldquo;My positions&rdquo;.
+          </p>
         </div>
         <div className="flex flex-wrap gap-4">
           <div className="bg-white border border-outline-variant p-4 rounded min-w-[160px] shadow-sm">
-            <div className="font-label-caps text-label-caps text-outline mb-1">EQUITY (USDC)</div>
+            <div className="font-label-caps text-label-caps text-outline mb-1">EQUITY (AGENT BOOK, USDC)</div>
             <div className="font-headline-sm text-headline-sm text-on-background">
               {isSummaryLoading ? "..." : `$${summary?.totalUsdc.toLocaleString()}`}
             </div>
+            <div className="text-[10px] font-bold text-on-surface-variant mt-1">Backend record of the agent&apos;s holdings</div>
             <div className={`text-[12px] font-bold ${(summary?.dailyPnl ?? 0) >= 0 ? 'text-secondary' : 'text-tertiary'} flex items-center gap-1 mt-1`}>
               <span className="material-symbols-outlined text-[14px]">
                 {(summary?.dailyPnl ?? 0) >= 0 ? 'arrow_upward' : 'arrow_downward'}
@@ -232,12 +238,90 @@ export default function PortfolioPage() {
           </div>
 
           <div className="bg-white border border-outline-variant p-4 rounded min-w-[160px] shadow-sm">
-            <div className="font-label-caps text-label-caps text-outline mb-1">ACTIVE POSITIONS</div>
+            <div className="font-label-caps text-label-caps text-outline mb-1">AGENT POSITIONS</div>
             <div className="font-headline-sm text-headline-sm text-on-background">
               {isSummaryLoading ? "..." : summary?.openPositions}
             </div>
-            <div className="text-[12px] font-medium text-on-surface-variant mt-1">Managed by OracleDesk</div>
+            <div className="text-[12px] font-medium text-on-surface-variant mt-1">Open positions the agent manages</div>
           </div>
+        </div>
+      </section>
+
+      {/* User's own on-chain positions (issue #50), read from ledger entries */}
+      <section className="mb-8" aria-labelledby="my-positions-title">
+        <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="my-positions-title" className="font-headline-sm text-headline-sm text-on-background">My positions</h2>
+          <p className="text-[11px] font-medium text-on-surface-variant">
+            From your wallet&apos;s market-core ledger entries · not the agent&apos;s book
+          </p>
+        </div>
+        <div className="rounded-xl border border-outline-variant bg-white shadow-sm">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-outline-variant px-6 py-3">
+            <span className="font-label-caps text-label-caps text-outline">MARKET VALUE</span>
+            <span className="font-data-mono text-data-mono text-on-background">
+              {myPositions.isLoading ? "Scanning ledger…" : `${formatUsdc(myPositions.totalValueRaw, { maxDecimals: 2, grouping: true })} USDC`}
+            </span>
+          </div>
+          {myPositions.error ? (
+            <p className="px-6 py-8 text-center text-sm text-error" role="alert">{myPositions.error}</p>
+          ) : !wallet.isConnected ? (
+            <p className="px-6 py-8 text-center text-sm text-on-surface-variant">
+              Connect a Stellar wallet to see your on-chain positions.
+            </p>
+          ) : myPositions.isLoading ? (
+            <p className="px-6 py-8 text-center text-sm text-on-surface-variant" role="status">
+              Reading Position entries from the market-core contract…
+            </p>
+          ) : myPositions.rows.length === 0 ? (
+            <p className="px-6 py-8 text-center text-sm text-on-surface-variant">
+              {myPositions.totalMarkets === undefined || myPositions.totalMarkets === 0n
+                ? "No on-chain markets exist yet."
+                : "Your wallet holds no position shares on-chain."}
+            </p>
+          ) : (
+            <ul className="divide-y divide-outline-variant">
+              {myPositions.rows.map((row) => {
+                const settled = row.settlement !== null;
+                return (
+                  <li key={row.marketId.toString()} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-6 py-3">
+                    <span className="max-w-xl flex-1 truncate font-body-md text-body-md font-semibold text-on-surface">
+                      {row.question ?? `Market #${row.marketId.toString()}`}
+                    </span>
+                    <span className="font-data-mono text-data-mono text-on-surface-variant">
+                      {row.yes > 0n ? `${formatUsdc(row.yes, { maxDecimals: 2, grouping: true })} YES` : ""}
+                      {row.yes > 0n && row.no > 0n ? " · " : ""}
+                      {row.no > 0n ? `${formatUsdc(row.no, { maxDecimals: 2, grouping: true })} NO` : ""}
+                    </span>
+                    {row.yesBps !== null && (
+                      <span className="font-data-mono text-data-mono text-on-surface-variant">
+                        YES {row.yesBps / 100}%
+                      </span>
+                    )}
+                    <span className="font-data-mono text-data-mono font-semibold text-on-background">
+                      {row.valueRaw === null ? "—" : `${formatUsdc(row.valueRaw, { maxDecimals: 2, grouping: true })} USDC`}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
+                      row.settlement === "yes" || row.settlement === "no"
+                        ? "bg-secondary-container text-on-secondary-container"
+                        : row.settlement === "void"
+                          ? "bg-surface-container-highest text-on-surface-variant"
+                          : "bg-primary-container text-on-primary-container"
+                    }`}>
+                      {settled ? `Settled · ${row.settlement}` : "Open"}
+                    </span>
+                    {row.archived && (
+                      <span className="font-data-mono text-[10px] text-outline">archived</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {myPositions.scanLimited && (
+            <p className="border-t border-outline-variant px-6 py-2 text-xs text-on-surface-variant">
+              The scan limit was reached; the newest markets were checked first.
+            </p>
+          )}
         </div>
       </section>
 

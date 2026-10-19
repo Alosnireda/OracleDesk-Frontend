@@ -1,27 +1,21 @@
 import type { NextConfig } from "next";
 
-/**
- * One id per build: used as Next's BUILD_ID, the service worker cache
- * namespace (/sw.js?v=…) and the precache file name. CI can pin it with
- * BUILD_ID (e.g. the commit sha); otherwise a timestamp keeps builds distinct.
- */
-const buildId = (process.env.BUILD_ID || process.env.NEXT_PUBLIC_BUILD_SHA || `b${Date.now().toString(36)}`).replace(/[^A-Za-z0-9_-]/g, "");
-
 const nextConfig: NextConfig = {
-  generateBuildId: async () => buildId,
-  env: { NEXT_PUBLIC_BUILD_ID: buildId },
-  async headers() {
+  /**
+   * The seven demo-only routes retired by issue #49. Their UI moved to
+   * components/demo/ and renders only in the noindex design gallery at
+   * /dev/gallery when NEXT_PUBLIC_ENABLE_DEMO_ROUTES is set; the old URLs go
+   * to real destinations (see lib/demo/retired-routes.ts, which CI checks).
+   */
+  async redirects() {
     return [
-      {
-        // The worker must always be revalidated so updates are noticed.
-        // If a CSP is introduced, it must include `worker-src 'self'`.
-        source: "/sw.js",
-        headers: [
-          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
-          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
-          { key: "Service-Worker-Allowed", value: "/" },
-        ],
-      },
+      { source: "/wallet-demo", destination: "/portfolio/wallets", permanent: true },
+      { source: "/buy-yes-demo", destination: "/markets", permanent: true },
+      { source: "/buy-no-demo", destination: "/markets", permanent: true },
+      { source: "/execution-terminal", destination: "/markets", permanent: true },
+      { source: "/transaction-status", destination: "/tx", permanent: true },
+      { source: "/transaction-success", destination: "/tx", permanent: true },
+      { source: "/transaction-failed", destination: "/tx", permanent: true },
     ];
   },
 };

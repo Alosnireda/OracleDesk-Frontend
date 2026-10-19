@@ -44,6 +44,7 @@ export function useUnlockTrace() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["trace", variables.traceId] });
       queryClient.invalidateQueries({ queryKey: ["traces"] });
+      queryClient.invalidateQueries({ queryKey: ["trace-payments"] });
     },
   });
 }

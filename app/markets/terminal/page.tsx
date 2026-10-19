@@ -70,7 +70,7 @@ export default function MarketTerminal() {
             High-stakes decision-making requires clarity. Our new Light Mode design system minimizes cognitive load with a data-first philosophy and tonal layering.
           </p>
           <div className="flex flex-wrap gap-4">
-            <Link href="/execution-terminal" className="px-6 py-3 bg-primary text-primary-foreground font-headline-sm text-headline-sm rounded hover:shadow-lg transition-all active:scale-[0.98]">
+            <Link href="/markets" className="px-6 py-3 bg-primary text-primary-foreground font-headline-sm text-headline-sm rounded hover:shadow-lg transition-all active:scale-[0.98]">
               Launch Terminal
             </Link>
             <button className="px-6 py-3 border border-outline text-primary font-headline-sm text-headline-sm rounded hover:bg-surface-container transition-all active:scale-[0.98]">
