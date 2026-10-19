@@ -1,18 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { Suspense, useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ReferenceLine,
-  ResponsiveContainer,
-} from "recharts";
+import { useSearchParams } from "next/navigation";
+import PriceChart from "@/components/charts/price-chart";
+import { usePriceHistory } from "@/lib/hooks/usePriceHistory";
 
 const MarketHeader = () => {
   return (
@@ -66,221 +59,21 @@ const MarketHeader = () => {
   );
 };
 
-// ── Probability chart data sets per period ─────────────────────────────────
-const generateChartData = (period: string) => {
-  const base = [52, 54, 56, 53, 58, 61, 59, 63, 62, 64, 60, 64, 65, 64, 66, 64];
-  const labels: Record<string, string[]> = {
-    "1H": ["12:00","12:04","12:08","12:12","12:16","12:20","12:24","12:28","12:32","12:36","12:40","12:44","12:48","12:52","12:56","13:00"],
-    "1D": ["Mon","Tue","Wed","Thu","Fri","Sat","Sun","Mon","Tue","Wed","Thu","Fri","Sat","Sun","Mon","Now"],
-    "1W": ["W1","W2","W3","W4","W5","W6","W7","W8","W9","W10","W11","W12","W13","W14","W15","W16"],
-    "ALL": ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr"],
-  };
-  return base.map((yes, i) => ({
-    time: labels[period]?.[i] ?? String(i),
-    yes: yes + (Math.random() - 0.5) * 2,
-    no: 100 - yes - (Math.random() - 0.5) * 2,
-    volume: Math.floor(800_000 + Math.random() * 1_200_000),
-  }));
+// ── On-chain price chart ───────────────────────────────────────────────────
+// Reads ?onChainId= from the URL; the chart itself is Suspense-wrapped so
+// useSearchParams can prerender without bailing out the whole page.
+const MarketPriceSection = () => {
+  const searchParams = useSearchParams();
+  const onChainId = searchParams.get("onChainId");
+  const { points } = usePriceHistory(onChainId);
+  return <PriceChart points={points} />;
 };
 
-interface TooltipProps {
-  active?: boolean;
-  label?: string | number;
-  payload?: Array<{ name?: string; value?: number; color?: string; dataKey?: string | number }>;
-}
-
-const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-on-background text-surface px-3 py-2 rounded shadow-xl font-data-mono text-[11px] border border-primary/20">
-      <p className="text-outline mb-1">{label}</p>
-      <p className="text-secondary font-bold">YES {payload[0]?.value?.toFixed(1)}%</p>
-      <p className="text-tertiary font-bold">NO {payload[1]?.value?.toFixed(1)}%</p>
-    </div>
-  );
-};
-
-const ProbabilityChart = () => {
-  const [activePeriod, setActivePeriod] = useState("1D");
-  const [activeTab, setActiveTab] = useState<"probability" | "volume">("probability");
-  const [data, setData] = useState(() => generateChartData("1D"));
-  const [liveProb, setLiveProb] = useState(64.2);
-
-  // Simulate live ticking
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLiveProb((p) => +(p + (Math.random() - 0.48) * 0.4).toFixed(2));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handlePeriod = (p: string) => {
-    setActivePeriod(p);
-    setData(generateChartData(p));
-  };
-
-  return (
-    <div className="bg-surface-container-lowest border border-outline-variant p-6 rounded relative overflow-hidden">
-      {/* Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <div className="flex gap-4">
-          {(["probability", "volume"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`font-label-caps text-label-caps pb-1 transition-colors capitalize ${
-                activeTab === tab
-                  ? "text-primary border-b-2 border-primary"
-                  : "text-on-surface-variant hover:text-primary"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1">
-            {["1H", "1D", "1W", "ALL"].map((period) => (
-              <button
-                key={period}
-                onClick={() => handlePeriod(period)}
-                className={`px-3 py-1 rounded font-label-caps text-label-caps transition-all ${
-                  activePeriod === period
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
-                }`}
-              >
-                {period}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-surface-container rounded border border-outline-variant">
-            <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
-            <span className="font-data-mono text-[11px] text-secondary font-bold">
-              LIVE: {liveProb.toFixed(2)}%
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-4 mb-4">
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-0.5 bg-secondary rounded-full inline-block" />
-          <span className="font-label-caps text-[10px] text-on-surface-variant">YES</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-0.5 bg-tertiary rounded-full inline-block" />
-          <span className="font-label-caps text-[10px] text-on-surface-variant">NO</span>
-        </div>
-        {activeTab === "probability" && (
-          <div className="flex items-center gap-1.5 ml-2">
-            <span className="w-4 h-0.5 border-t-2 border-dashed border-primary inline-block" />
-            <span className="font-label-caps text-[10px] text-primary">AI ESTIMATE: 64%</span>
-          </div>
-        )}
-      </div>
-
-      {/* Chart */}
-      <div className="h-[340px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          {activeTab === "probability" ? (
-            <AreaChart data={data} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradYes" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#006c49" stopOpacity={0.18} />
-                  <stop offset="95%" stopColor="#006c49" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="gradNo" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#840023" stopOpacity={0.12} />
-                  <stop offset="95%" stopColor="#840023" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#bfc8cc" strokeOpacity={0.3} />
-              <XAxis
-                dataKey="time"
-                tick={{ fontSize: 10, fill: "#6f797c", fontFamily: "var(--font-geist-sans)" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                domain={[0, 100]}
-                tickFormatter={(v) => `${v}%`}
-                tick={{ fontSize: 10, fill: "#6f797c", fontFamily: "var(--font-geist-sans)" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <ReferenceLine
-                y={64}
-                stroke="#004655"
-                strokeDasharray="6 4"
-                strokeWidth={1.5}
-                label={{ value: "AI 64%", position: "insideTopRight", fontSize: 10, fill: "#004655" }}
-              />
-              <Area
-                type="monotone"
-                dataKey="yes"
-                stroke="#006c49"
-                strokeWidth={2}
-                fill="url(#gradYes)"
-                dot={false}
-                activeDot={{ r: 4, fill: "#006c49" }}
-              />
-              <Area
-                type="monotone"
-                dataKey="no"
-                stroke="#840023"
-                strokeWidth={1.5}
-                fill="url(#gradNo)"
-                strokeDasharray="4 2"
-                dot={false}
-                activeDot={{ r: 4, fill: "#840023" }}
-              />
-            </AreaChart>
-          ) : (
-            <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-              <defs>
-                <linearGradient id="gradVol" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#004655" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#004655" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#bfc8cc" strokeOpacity={0.3} />
-              <XAxis
-                dataKey="time"
-                tick={{ fontSize: 10, fill: "#6f797c", fontFamily: "var(--font-geist-sans)" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tickFormatter={(v) => `$${(v / 1_000_000).toFixed(1)}M`}
-                tick={{ fontSize: 10, fill: "#6f797c", fontFamily: "var(--font-geist-sans)" }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                formatter={(v) => [`$${(Number(v) / 1000).toFixed(0)}K`, "Volume"]}
-                contentStyle={{ background: "#0b1c30", border: "none", borderRadius: 4, fontSize: 11 }}
-                labelStyle={{ color: "#6f797c" }}
-                itemStyle={{ color: "#8bd1e8" }}
-              />
-              <Area
-                type="monotone"
-                dataKey="volume"
-                stroke="#004655"
-                strokeWidth={2}
-                fill="url(#gradVol)"
-                dot={false}
-                activeDot={{ r: 4, fill: "#004655" }}
-              />
-            </AreaChart>
-          )}
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-};
+const MarketPriceSkeleton = () => (
+  <div className="bg-surface-container-lowest border border-outline-variant p-6 rounded">
+    <div className="h-[340px] w-full animate-pulse-soft rounded bg-surface-container" />
+  </div>
+);
 
 const MarketDepth = () => {
   return (
@@ -571,7 +364,9 @@ export default function MarketDetail() {
         <div className="grid grid-cols-12 gap-gutter">
           {/* Left Column */}
           <div className="col-span-12 lg:col-span-8 space-y-gutter">
-            <ProbabilityChart />
+            <Suspense fallback={<MarketPriceSkeleton />}>
+              <MarketPriceSection />
+            </Suspense>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-gutter">
               <MarketDepth />

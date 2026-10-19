@@ -30,7 +30,7 @@ describe("trace-history service", () => {
       expect(diff.probabilityChange).toBeDefined();
       expect(diff.probabilityChange?.from).toBe(0.5);
       expect(diff.probabilityChange?.to).toBe(0.7);
-      expect(diff.probabilityChange?.delta).toBe(0.2);
+      expect(diff.probabilityChange?.delta).toBeCloseTo(0.2);
     });
 
     it("detects decision flip", () => {
@@ -111,18 +111,25 @@ describe("trace-history service", () => {
 
   describe("matchSources", () => {
     it("matches sources by name (case-insensitive)", () => {
-      const before = [
-        { name: "Market Liquidity", weight: 0.4, signal: "High" },
-        { name: "Sentiment", weight: 0.3, signal: "Bullish" },
-      ];
-      const after = [
-        { name: "market liquidity", weight: 0.5, signal: "High" },
-        { name: "Sentiment", weight: 0.3, signal: "Bullish" },
-      ];
+      const before = extractSources({
+        sources: [
+          { name: "Market Liquidity", weight: 0.4, signal: "High" },
+          { name: "Sentiment", weight: 0.3, signal: "Bullish" },
+        ],
+      });
+      const after = extractSources({
+        sources: [
+          { name: "market liquidity", weight: 0.5, signal: "High" },
+          { name: "Sentiment", weight: 0.3, signal: "Bullish" },
+        ],
+      });
 
-      // This test assumes matchSources is exported
-      expect(after[0].weight).toBe(0.5);
-      expect(before[0].weight).toBe(0.4);
+      const diff = matchSources(before, after);
+      expect(diff.added).toEqual([]);
+      expect(diff.removed).toEqual([]);
+      expect(diff.modified).toEqual([
+        { name: "market liquidity", weightBefore: 0.4, weightAfter: 0.5, signalBefore: "High", signalAfter: "High" },
+      ]);
     });
   });
 });

@@ -1,0 +1,69 @@
+[
+  {
+    "name": "market-created",
+    "ledger": 100,
+    "index": 1,
+    "ledgerClosedAt": "2026-01-01T00:01:40.000Z",
+    "txHash": "abababababababababababababababababababababababababababababababab",
+    "topics": [
+      "AAAADwAAAA5tYXJrZXRfY3JlYXRlZAAA",
+      "AAAABQAAAAAAAAAH"
+    ],
+    "value": "AAAAEQAAAAEAAAAFAAAADwAAAApjbG9zZV90aW1lAAAAAAAFAAAAAHc1lAAAAAAPAAAAB2NyZWF0b3IAAAAAEgAAAAAAAAAAiojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1wAAAAPAAAAD2luaXRpYWxfeWVzX2JwcwAAAAADAAAXcAAAAA8AAAAJbWFya2V0X2lkAAAAAAAABQAAAAAAAAAHAAAADwAAAAtzZWVkX2Ftb3VudAAAAAAKAAAAAAAAAAAAAAAABfXhAA==",
+    "trader": "GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR"
+  },
+  {
+    "name": "trade-buy",
+    "ledger": 200,
+    "index": 2,
+    "ledgerClosedAt": "2026-01-01T00:03:20.000Z",
+    "txHash": "abababababababababababababababababababababababababababababababab",
+    "topics": [
+      "AAAADwAAAAV0cmFkZQAAAA==",
+      "AAAABQAAAAAAAAAH",
+      "AAAAEgAAAAAAAAAAiojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+    ],
+    "value": "AAAAEQAAAAEAAAAJAAAADwAAAApjb2xsYXRlcmFsAAAAAAAKAAAAAAAAAAAAAAAAAvrwgAAAAA8AAAADZmVlAAAAAAoAAAAAAAAAAAAAAAAAADDUAAAADwAAAAZpc19idXkAAAAAAAAAAAABAAAADwAAAAltYXJrZXRfaWQAAAAAAAAFAAAAAAAAAAcAAAAPAAAAB291dGNvbWUAAAAAEAAAAAEAAAABAAAADwAAAANZZXMAAAAADwAAAApyZXNlcnZlX25vAAAAAAAKAAAAAAAAAAAAAAAABfXhAAAAAA8AAAALcmVzZXJ2ZV95ZXMAAAAACgAAAAAAAAAAAAAAAAjw0YAAAAAPAAAABnNoYXJlcwAAAAAACgAAAAAAAAAAAAAAAARh+EMAAAAPAAAABnRyYWRlcgAAAAAAEgAAAAAAAAAAiojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w=",
+    "trader": "GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR"
+  },
+  {
+    "name": "market-resolved-yes",
+    "ledger": 300,
+    "index": 1,
+    "ledgerClosedAt": "2026-01-01T00:05:00.000Z",
+    "txHash": "abababababababababababababababababababababababababababababababab",
+    "topics": [
+      "AAAADwAAAA9tYXJrZXRfcmVzb2x2ZWQA",
+      "AAAABQAAAAAAAAAH"
+    ],
+    "value": "AAAAEQAAAAEAAAACAAAADwAAAAltYXJrZXRfaWQAAAAAAAAFAAAAAAAAAAcAAAAPAAAAB291dGNvbWUAAAAAEAAAAAEAAAABAAAADwAAAANZZXMA",
+    "trader": "GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR"
+  },
+  {
+    "name": "market-resolved-void",
+    "ledger": 301,
+    "index": 1,
+    "ledgerClosedAt": "2026-01-01T00:05:01.000Z",
+    "txHash": "abababababababababababababababababababababababababababababababab",
+    "topics": [
+      "AAAADwAAAA9tYXJrZXRfcmVzb2x2ZWQA",
+      "AAAABQAAAAAAAAAH"
+    ],
+    "value": "AAAAEQAAAAEAAAACAAAADwAAAAltYXJrZXRfaWQAAAAAAAAFAAAAAAAAAAcAAAAPAAAAB291dGNvbWUAAAAAAQ==",
+    "trader": "GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR"
+  },
+  {
+    "name": "redeemed",
+    "ledger": 400,
+    "index": 1,
+    "ledgerClosedAt": "2026-01-01T00:06:40.000Z",
+    "txHash": "abababababababababababababababababababababababababababababababab",
+    "topics": [
+      "AAAADwAAAAhyZWRlZW1lZA==",
+      "AAAABQAAAAAAAAAH",
+      "AAAAEgAAAAAAAAAAiojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+    ],
+    "value": "AAAAEQAAAAEAAAADAAAADwAAAAZob2xkZXIAAAAAABIAAAAAAAAAAIqI4910CfGV/VLbLTy6XXLKZwm/HZQSG/N0iAG0D29cAAAADwAAAAltYXJrZXRfaWQAAAAAAAAFAAAAAAAAAAcAAAAPAAAABnBheW91dAAAAAAACgAAAAAAAAAAAAAAAARh+EM=",
+    "trader": "GCFIRY65OQE7DFP5KLNS2PF2LVZMUZYJX4OZIEQ36N2IQANUB5XVYOJR"
+  }
+]

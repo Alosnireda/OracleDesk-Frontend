@@ -27,6 +27,64 @@ export function decodeEvent(event: rpc.Api.EventResponse): ChainEvent | null {
   if (!parsed) return null;
   return { id: event.id, ledger: event.ledger, closedAt: event.ledgerClosedAt, txHash: event.txHash, name: parsed.name, data: parsed.data };
 }
+/** Typed market-core events used by the price history and analytics layers. */
+export type MarketCoreEvent =
+  | { kind: "MarketCreated"; marketId: bigint; creator: string; closeTime: bigint; seedAmount: bigint; initialYesBps: number }
+  | { kind: "Trade"; marketId: bigint; trader: string; outcome: OutcomeTag; isBuy: boolean; collateral: bigint; shares: bigint; fee: bigint; reserveYes: bigint; reserveNo: bigint }
+  | { kind: "MarketResolved"; marketId: bigint; outcome: "Yes" | "No" | null }
+  | { kind: "Redeemed"; marketId: bigint; holder: string; payout: bigint };
+
+export interface EventMeta { id: string; ledger: number; ledgerClosedAt: string; txHash: string }
+export type DecodedEvent = MarketCoreEvent & { meta: EventMeta };
+
+const isBig = (v: unknown): v is bigint => typeof v === "bigint";
+const outcomeOf = (v: unknown): "Yes" | "No" | null | undefined => {
+  const tag = (v as { tag?: unknown } | null | undefined)?.tag;
+  return tag === "Yes" || tag === "No" ? tag : v === null || v === undefined ? null : undefined;
+};
+
+/** Decode one contract event into a typed market-core event, or null for
+ * unknown names, wrong contract ids or malformed payloads. */
+export function decodeMarketCoreEvent(event: rpc.Api.EventResponse): DecodedEvent | null {
+  const decoded = decodeEvent(event);
+  if (!decoded) return null;
+  const meta: EventMeta = { id: decoded.id, ledger: decoded.ledger, ledgerClosedAt: decoded.closedAt, txHash: decoded.txHash };
+  const d = decoded.data;
+  switch (decoded.name) {
+    case "MarketCreated":
+      if (typeof d.creator !== "string" || typeof d.initial_yes_bps !== "number" ||
+        !isBig(d.market_id) || !isBig(d.close_time) || !isBig(d.seed_amount)) return null;
+      return { kind: "MarketCreated", marketId: d.market_id, creator: d.creator, closeTime: d.close_time, seedAmount: d.seed_amount, initialYesBps: d.initial_yes_bps, meta };
+    case "Trade": {
+      const row = decodeTrade(event);
+      if (!row) return null;
+      return { kind: "Trade", marketId: BigInt(row.marketId), trader: row.trader, outcome: row.outcome, isBuy: row.isBuy,
+        collateral: row.collateral, shares: row.shares, fee: row.fee, reserveYes: row.reserveYes!, reserveNo: row.reserveNo!, meta };
+    }
+    case "MarketResolved": {
+      if (!isBig(d.market_id)) return null;
+      const outcome = outcomeOf(d.outcome);
+      if (outcome === undefined) return null;
+      return { kind: "MarketResolved", marketId: d.market_id, outcome, meta };
+    }
+    case "Redeemed":
+      if (!isBig(d.market_id) || typeof d.holder !== "string" || !isBig(d.payout)) return null;
+      return { kind: "Redeemed", marketId: d.market_id, holder: d.holder, payout: d.payout, meta };
+    default:
+      return null;
+  }
+}
+
+/** One contract filter per event name, scoped to a single market.
+ * RPC allows at most 5 filters per request. */
+export function marketTopicFilter(marketId: bigint, names: readonly string[]): rpc.Api.EventFilter[] {
+  return names.map(name => ({
+    type: "contract" as const,
+    contractIds: [CONTRACTS.marketCore],
+    topics: [eventTopicFilter(name, { market_id: marketId })],
+  }));
+}
+
 export function decodeTrade(event: rpc.Api.EventResponse): TradeRow | null {
   const decoded = decodeEvent(event);
   if (decoded?.name !== "Trade") return null;
