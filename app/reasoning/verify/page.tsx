@@ -10,6 +10,7 @@ import { CONTRACTS, explorerAccount } from "@/lib/stellar/config";
 import { reasoningRegistry } from "@/lib/stellar/clients";
 import { read, bytesToHex } from "@/lib/stellar/typed-call";
 import { ipfsUrl, verifyTraceInWorker, type GatewayAttempt, type CidCheck, type TraceCheck } from "@/lib/stellar/trace";
+import { SafeTraceViewer } from "@/components/safe-trace-viewer";
 
 interface VerificationResult {
   verified: boolean;
@@ -21,6 +22,7 @@ interface VerificationResult {
   reason?: string;
   attempts?: GatewayAttempt[];
   cidCheck?: CidCheck;
+  content?: unknown;
 }
 
 const GATEWAY_OUTCOME_LABEL: Record<GatewayAttempt["outcome"], string> = {
@@ -159,6 +161,7 @@ function VerifyTraceContent() {
         reason: check.status === "unavailable" ? check.reason : undefined,
         attempts: check.attempts,
         cidCheck: check.status === "unavailable" ? undefined : check.cidCheck,
+        content: check.status === "verified" ? check.content : undefined,
       };
       if (check.status === "unavailable") {
         log(`>> [IPFS] ${check.reason}. The content can't be checked.`, 90);
@@ -360,6 +363,16 @@ function VerifyTraceContent() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {isComplete && verificationResult?.verified && verificationResult.content && (
+              <SafeTraceViewer
+                content={verificationResult.content}
+                verified={true}
+                ipfsCid={verificationResult.ipfsCid}
+                traceHash={verificationResult.storedHash}
+                title="Verified Reasoning Content"
+              />
+            )}
 
             {isComplete && verificationResult?.attempts && verificationResult.attempts.length > 0 && (
               <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg space-y-3">
