@@ -86,6 +86,17 @@ Points bucket on a worker (`lib/charts/bucket.worker.ts`) into fixed widths per 
 
 All routes prerender as static pages. Pages that read query parameters (`/markets/quick-view`, `/copy-trade`, `/reasoning/verify`) keep `useSearchParams` inside a `<Suspense>` boundary; without it the production build fails.
 
+### Server and client boundaries
+
+Pages under `app/` should default to server components. Only the smallest interactive subtree should opt into `"use client"`; static marketing copy, pricing tables, feature summaries and layout-only content stay in the server-rendered shell so they do not inflate the client bundle or hydrate unnecessarily.
+
+- Keep page entrypoints in `app/.../page.tsx` as server components that render a lightweight client island.
+- Co-locate interactive islands under `app/_components/` or `app/<route>/page-client.tsx` with a single `"use client"` directive at the top.
+- Pass only serializable props across the server/client boundary (strings, numbers, arrays, plain objects, URL strings, not functions or `bigint`).
+- Wallet, React Query, socket streams, framer-motion and browser-only APIs stay client-only and are never imported into server pages.
+- Server pages must not import `lib/contexts/*`, `lib/hooks/*`, `WalletProvider`, or client-only config objects. They are static and should remain free of browser-only code.
+- Use `export const dynamic = "error"` on server-shell routes that are meant to stay static. This fails fast if a future change accidentally makes a route dynamic.
+
 ### Realtime lists and storage bounds
 
 `RealtimeProvider` owns one socket and one mixed-event scheduler. Valid payloads enter a 500-event bounded batch; subscribers receive at most one batch per animation frame. Hidden tabs accumulate a bounded backlog without updating realtime DOM, then receive one catch-up batch with overflow counts. Feed rings retain six home rows and eight market rows with event IDs as keys. A rolling second above ten events suppresses row animations and displays a summary; reduced motion also disables the ticker and realtime row animations.
