@@ -5,7 +5,8 @@ import { Client as MarketCoreClient, type Category, type Outcome } from "./gener
 import { Client as TreasuryClient } from "./generated/treasury";
 import { Client as ResolverClient } from "./generated/resolver";
 import { Client as ReasoningRegistryClient } from "./generated/reasoning-registry";
-import { CONTRACTS, NETWORK_PASSPHRASE, RPC_URL } from "./config";
+import { CONTRACTS, NETWORK_PASSPHRASE, RPC_URL, RPC_URLS } from "./config";
+import { getRpcPool, type RpcPool } from "./rpc-pool";
 
 /** What a wallet provides to sign. Omit it for read-only simulation. */
 export interface Signer {
@@ -13,40 +14,68 @@ export interface Signer {
   signTransaction: SignTransaction;
 }
 
-let _rpcServer: rpc.Server | null = null;
-/** Memoised Stellar RPC server instance. */
-export function rpcServer(): rpc.Server {
-  if (!_rpcServer) {
-    _rpcServer = new rpc.Server(RPC_URL, {
-      allowHttp: RPC_URL.startsWith("http://"),
-    });
-  }
-  return _rpcServer;
+/** The endpoint pool in the browser; null on the server (prerender, node tests), which uses RPC_URL. */
+export function rpcPool(): RpcPool | null {
+  return getRpcPool(RPC_URLS, NETWORK_PASSPHRASE);
 }
 
-function options(
+/** The RPC URL reads should use right now (the pinned one while a write flow holds a lease). */
+export function currentRpcUrl(): string {
+  return rpcPool()?.current() ?? RPC_URL;
+}
+
+const servers = new Map<string, rpc.Server>();
+/** Memoised Stellar RPC server for `url` (defaults to the pool's current endpoint). */
+export function rpcServer(url: string = currentRpcUrl()): rpc.Server {
+  let server = servers.get(url);
+  if (!server) {
+    server = new rpc.Server(url, { allowHttp: url.startsWith("http://") });
+    servers.set(url, server);
+  }
+  return server;
+}
+
+/**
+ * Runs a write flow on one endpoint. While the lease is held the pool's
+ * current() returns the pinned URL, so every factory, simulation, submit and
+ * status poll inside `fn` goes to the same RPC (no txBadSeq or "not found"
+ * from a node that hasn't ingested the tx yet). Never resubmits elsewhere.
+ */
+export async function withPinnedRpc<T>(fn: (rpcUrl: string) => Promise<T>): Promise<T> {
+  const pool = rpcPool();
+  if (!pool) return fn(RPC_URL);
+  const lease = pool.pin();
+  try {
+    return await fn(lease.url);
+  } finally {
+    lease.release();
+  }
+}
+
+export function options(
   contractId: string,
   signer?: Signer,
   extra?: { timeoutInSeconds?: number },
+  rpcUrl: string = currentRpcUrl(),
 ): ClientOptions & { timeoutInSeconds?: number } {
   return {
     contractId,
     networkPassphrase: NETWORK_PASSPHRASE,
-    rpcUrl: RPC_URL,
-    allowHttp: RPC_URL.startsWith("http://"),
+    rpcUrl,
+    allowHttp: rpcUrl.startsWith("http://"),
     ...(signer ? { publicKey: signer.publicKey, signTransaction: signer.signTransaction } : {}),
     ...(extra?.timeoutInSeconds !== undefined ? { timeoutInSeconds: extra.timeoutInSeconds } : {}),
   };
 }
 
-export const marketCore = (signer?: Signer, opts?: { timeoutInSeconds?: number }) =>
-  new MarketCoreClient(options(CONTRACTS.marketCore, signer, opts));
-export const treasury = (signer?: Signer, opts?: { timeoutInSeconds?: number }) =>
-  new TreasuryClient(options(CONTRACTS.treasury, signer, opts));
-export const resolver = (signer?: Signer, opts?: { timeoutInSeconds?: number }) =>
-  new ResolverClient(options(CONTRACTS.resolver, signer, opts));
-export const reasoningRegistry = (signer?: Signer, opts?: { timeoutInSeconds?: number }) =>
-  new ReasoningRegistryClient(options(CONTRACTS.reasoningRegistry, signer, opts));
+export const marketCore = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
+  new MarketCoreClient(options(CONTRACTS.marketCore, signer, opts, rpcUrl));
+export const treasury = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
+  new TreasuryClient(options(CONTRACTS.treasury, signer, opts, rpcUrl));
+export const resolver = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
+  new ResolverClient(options(CONTRACTS.resolver, signer, opts, rpcUrl));
+export const reasoningRegistry = (signer?: Signer, opts?: { timeoutInSeconds?: number }, rpcUrl?: string) =>
+  new ReasoningRegistryClient(options(CONTRACTS.reasoningRegistry, signer, opts, rpcUrl));
 
 /**
  * The USDC Stellar Asset Contract. A SAC has no Wasm and so no generated
@@ -61,9 +90,9 @@ export const token = {
       parseResultXdr: (v) => String(scValToNative(v)),
     });
   },
-  balance(owner: string, contractId: string = CONTRACTS.usdc): Promise<AssembledTransaction<bigint>> {
+  balance(owner: string, contractId: string = CONTRACTS.usdc, rpcUrl?: string): Promise<AssembledTransaction<bigint>> {
     return AssembledTransaction.build<bigint>({
-      ...options(contractId),
+      ...options(contractId, undefined, undefined, rpcUrl),
       method: "balance",
       args: [new Address(owner).toScVal()],
       parseResultXdr: (v) => BigInt(scValToNative(v)),
@@ -74,9 +103,10 @@ export const token = {
     signer: Signer,
     contractId: string = CONTRACTS.usdc,
     txOptions: { timeoutInSeconds?: number } = {},
+    rpcUrl?: string,
   ): Promise<AssembledTransaction<null>> {
     return AssembledTransaction.build<null>({
-      ...options(contractId, signer),
+      ...options(contractId, signer, undefined, rpcUrl),
       ...txOptions,
       method: "transfer",
       args: [

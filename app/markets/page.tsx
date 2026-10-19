@@ -280,7 +280,7 @@ function OnChainOnlyMarkets({ knownIds }: { knownIds: Set<string> }) {
 export default function Markets() {
   const [status, setStatus] = useState<MarketStatus>("ACTIVE");
   const [category, setCategory] = useState<string>("");
-  const { data, isLoading, error } = useMarkets({ 
+  const { data, isLoading, error, refetch, isFetching } = useMarkets({ 
     status, 
     category: (category || undefined) as Market["category"] | undefined,
   });
@@ -310,11 +310,15 @@ export default function Markets() {
             <p className="text-on-surface-variant/70 text-sm mt-2">
               {error instanceof Error ? error.message : "Please check if the backend is running and accessible."}
             </p>
+            {typeof navigator !== "undefined" && navigator.onLine === false && (
+              <p className="text-on-surface-variant text-sm mt-2">You appear to be offline. Reconnect, then retry.</p>
+            )}
             <button 
-              onClick={() => window.location.reload()}
-              className="mt-6 px-4 py-2 bg-primary text-white rounded-lg font-label-caps text-label-caps"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+              className="mt-6 px-4 py-2 bg-primary text-white rounded-lg font-label-caps text-label-caps disabled:opacity-60"
             >
-              Retry Connection
+              {isFetching ? "Retrying…" : "Retry Connection"}
             </button>
           </div>
         ) : marketsData.length === 0 ? (

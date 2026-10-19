@@ -5,7 +5,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Keypair, scValToNative, TransactionBuilder, xdr } from "@stellar/stellar-sdk";
 import type { AssembledTransaction } from "@stellar/stellar-sdk/contract";
 import { useWallet } from "@/lib/contexts/WalletContext";
-import { marketCore, reasoningRegistry, token, Outcomes, rpcServer, type OutcomeTag, type Signer } from "@/lib/stellar/clients";
+import { currentRpcUrl, marketCore, reasoningRegistry, rpcPool, token, Outcomes, rpcServer, withPinnedRpc, type OutcomeTag, type Signer } from "@/lib/stellar/clients";
+import { DEBUG_ENABLED } from "@/lib/diagnostics/flags";
+import { recordSimulation } from "@/lib/diagnostics/events";
+import { useUpdatePending } from "@/lib/pwa/update-context";
 import { describeError, describeSubmission, UserFacingError, type ContractName } from "@/lib/stellar/errors";
 import { BPS, priceYesBps } from "@/lib/stellar/generated/fpmm";
 import type { Config, Market as OnChainMarket, Position } from "@/lib/stellar/generated/market-core";
@@ -76,6 +79,46 @@ export const stellarKeys = {
 };
 
 const toId = (id: bigint | string | number) => BigInt(id);
+
+/**
+ * Builds (and so simulates) a read against the pool's current endpoint, and
+ * records latency, success and the simulated ledger into the RPC pool (and
+ * the debug ring buffer when enabled). Recording never throws into the caller.
+ */
+async function measured<Tx extends AssembledTransaction<unknown>>(method: string, build: () => Promise<Tx>, contract: ContractName | "usdc" = "marketCore"): Promise<Tx> {
+  const url = currentRpcUrl();
+  const t0 = Date.now();
+  try {
+    const tx = await build();
+    const sim = tx.simulation as { latestLedger?: number; error?: string } | undefined;
+    try {
+      rpcPool()?.record(url, { ms: Date.now() - t0, ok: true, latestLedger: sim?.latestLedger });
+      if (DEBUG_ENABLED) recordSimulation(simRecord(contract, method, tx));
+    } catch { /* telemetry only */ }
+    return tx;
+  } catch (err) {
+    try {
+      const status = /\b429\b|rate.?limit/i.test(String((err as Error)?.message ?? err)) ? 429 : undefined;
+      rpcPool()?.record(url, { ms: Date.now() - t0, ok: false, status });
+      if (DEBUG_ENABLED) recordSimulation({ at: Date.now(), contract, method, error: describeError(err).message });
+    } catch { /* telemetry only */ }
+    throw err;
+  }
+}
+
+function simRecord(contract: ContractName | "usdc", method: string, tx: AssembledTransaction<unknown>) {
+  const sim = tx.simulation as
+    | { latestLedger?: number; minResourceFee?: string; error?: string; transactionData?: { build?: () => { resources(): { footprint(): { readOnly(): unknown[]; readWrite(): unknown[] } } } } }
+    | undefined;
+  let readEntries: number | undefined;
+  let writeEntries: number | undefined;
+  try {
+    const fp = sim?.transactionData?.build?.().resources().footprint();
+    readEntries = fp?.readOnly().length;
+    writeEntries = fp?.readWrite().length;
+  } catch { /* shape differs between success/restore/error simulations */ }
+  return { at: Date.now(), contract, method, latestLedger: sim?.latestLedger, readEntries, writeEntries, minResourceFee: sim?.minResourceFee, error: sim?.error };
+}
 
 async function trustlineFor(address: string): Promise<TrustlineState> {
   return getTrustlineState(address, await usdcClassicAsset());
@@ -176,17 +219,29 @@ export interface OnChainMarketView {
   market: OnChainMarket;
   /** YES price in bps, from the contract's own FPMM math. */
   yesBps: number;
+  /** Ledger the read was simulated at, or null if the RPC didn't say. */
+  ledger: number | null;
 }
 
 export async function fetchOnChainMarket(id: bigint | string): Promise<OnChainMarketView> {
-  const market = read(await marketCore().get_market({ market_id: toId(id) }));
-  return { id: String(id), market, yesBps: Number(priceYesBps(market.reserve_yes, market.reserve_no)) };
+  const tx = await measured("get_market", () => marketCore().get_market({ market_id: toId(id) }));
+  const market = read(tx);
+  const ledger = tx.simulation?.latestLedger;
+  return { id: String(id), market, yesBps: Number(priceYesBps(market.reserve_yes, market.reserve_no)), ledger: typeof ledger === "number" ? ledger : null };
+}
+
+/** Keeps the cached view when a refetch came from an endpoint on an older ledger. */
+export function newerMarketView(cached: OnChainMarketView | undefined, fresh: OnChainMarketView): OnChainMarketView {
+  if (cached?.ledger != null && fresh.ledger != null && fresh.ledger < cached.ledger) return cached;
+  return fresh;
 }
 
 export function useOnChainMarket(id: bigint | string | null | undefined) {
+  const client = useQueryClient();
   return useQuery({
     queryKey: stellarKeys.market(String(id)),
-    queryFn: () => fetchOnChainMarket(id as string),
+    queryFn: async () =>
+      newerMarketView(client.getQueryData<OnChainMarketView>(stellarKeys.market(String(id))), await fetchOnChainMarket(id as string)),
     enabled: id !== null && id !== undefined && id !== "",
     staleTime: 15_000,
     refetchInterval: 30_000,
@@ -219,7 +274,7 @@ function positionOptions(client: ReturnType<typeof useQueryClient>, id: bigint |
     queryKey,
     enabled: id !== null && id !== undefined && id !== "" && Boolean(holder),
     queryFn: async ({ signal }: { signal: AbortSignal }): Promise<Stamped<Position>> => {
-      const fresh = simulatedWithLedger(await marketCore().get_position({ market_id: toId(id as string), holder: holder as string }));
+      const fresh = simulatedWithLedger(await measured("get_position", () => marketCore().get_position({ market_id: toId(id as string), holder: holder as string })));
       signal.throwIfAborted();
       return reconcileRead(client.getQueryData(queryKey), fresh, (a, b) => a.yes === b.yes && a.no === b.no, queryKey);
     },
@@ -239,7 +294,7 @@ function balanceOptions(client: ReturnType<typeof useQueryClient>, owner: string
     queryKey,
     enabled: Boolean(owner),
     queryFn: async ({ signal }: { signal: AbortSignal }): Promise<Stamped<bigint>> => {
-      const fresh = simulatedWithLedger(await token.balance(owner as string));
+      const fresh = simulatedWithLedger(await measured("balance", () => token.balance(owner as string), "usdc"));
       signal.throwIfAborted();
       return reconcileRead(client.getQueryData(queryKey), fresh, (a, b) => a === b, queryKey);
     },
@@ -400,7 +455,9 @@ export function useQuoteBuy(id: bigint | string | null | undefined, outcome: Out
     enabled: id !== null && id !== undefined && collateralIn !== null && collateralIn > 0n,
     queryFn: async () =>
       read(
-        await marketCore().quote_buy({ market_id: toId(id as string), outcome: Outcomes[outcome], collateral_in: collateralIn as bigint }),
+        await measured("quote_buy", () =>
+          marketCore().quote_buy({ market_id: toId(id as string), outcome: Outcomes[outcome], collateral_in: collateralIn as bigint }),
+        ),
       ),
     staleTime: 5_000,
   });
@@ -584,7 +641,12 @@ export function useVerifiedTrace(onChainTraceId: bigint | string | null | undefi
 function useWriteGuard(): () => Signer {
   const { signer, isWrongNetwork } = useWallet();
   const queryClient = useQueryClient();
+  const updatePending = useUpdatePending();
   return () => {
+    // Never sign with an outdated bundle (stale contract ids or slippage logic).
+    if (updatePending) {
+      throw new UserFacingError({ kind: "unknown", message: "Reload to update OracleDesk before signing." });
+    }
     if (!signer) {
       throw new UserFacingError({ kind: "disconnected", message: "Connect your wallet first." });
     }
@@ -632,7 +694,7 @@ function confirmedAmount(value: xdr.ScVal | undefined): bigint {
 }
 
 function useTxRunner(contract: ContractName) {
-  const [runner] = useState(() => new TxLifecycle<unknown>({ server: rpcServer(), contract }));
+  const [runner] = useState(() => new TxLifecycle<unknown>({ server: () => rpcServer(), contract }));
   const phase = useSyncExternalStore(runner.subscribe, runner.getSnapshot, runner.getSnapshot);
   const start = useCallback(<T, R = T>(tx: AssembledTransaction<T>, parse: (v: xdr.ScVal | undefined) => R, onHash?: (hash: string) => void) =>
     runner.run(tx as AssembledTransaction<unknown>, parse, onHash) as Promise<{ value: R; txHash: string; ledger: number }>, [runner]);
@@ -895,7 +957,8 @@ function runQueuedWrite<T>(
     run: async ({ attempt, signal }) => {
       if (signal.aborted) throw new DOMException("The queued transaction was cancelled.", "AbortError");
       assertSignerCurrent(guard, signer.publicKey);
-      return run(attempt);
+      // One endpoint for re-quote, simulate, submit and polling.
+      return withPinnedRpc(() => run(attempt));
     },
   });
 }
@@ -1423,7 +1486,7 @@ export function useUsdcTransfer() {
   const tracker = useTxTracker();
 
   const mutation = useMutation({
-    mutationFn: async ({ to, amount, followUp, review }: UsdcTransferParams) => {
+    mutationFn: ({ to, amount, followUp, review }: UsdcTransferParams) => withPinnedRpc(async () => {
       const signer = guard();
       if (amount <= 0n) throw new UserFacingError({ kind: "contract", message: "Enter an amount greater than zero." });
 
@@ -1448,7 +1511,7 @@ export function useUsdcTransfer() {
       const { txHash } = await runner.start(tx, parse, onHash);
       if (!txHash) throw new UserFacingError({ kind: "unknown", message: "The payment was sent but no transaction hash came back." });
       return { txHash, holder: signer.publicKey };
-    },
+    }),
     onSuccess: (d) => {
       queryClient.invalidateQueries({ queryKey: stellarKeys.balance(d.holder) });
     },

@@ -163,3 +163,12 @@ describe("describeSubmission", () => {
     expect(result.submission).toBe("rejected-by-network");
   });
 });
+
+describe("describeError rate limiting", () => {
+  it("maps HTTP 429 to a busy-network message", () => {
+    const d = describeError(new Error("Request failed with status code 429"));
+    expect(d).toMatchObject({ kind: "network", code: "rate-limited" });
+    expect(d.message).toMatch(/busy right now/i);
+    expect(describeError("Too Many Requests").code).toBe("rate-limited");
+  });
+});
