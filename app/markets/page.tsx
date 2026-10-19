@@ -148,7 +148,7 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
         <div className="space-y-4">
           <div>
             <div className="flex justify-between text-label-caps font-label-caps mb-2">
-              <span className="text-secondary">YES {yesProb}%<SourceTag source={fromChain ? "chain" : "backend"} /></span>
+              <span className="text-secondary">YES {yesProb}%<SourceTag source={fromChain ? "chain" : "backend"} ledger={view?.ledger} readAt={fromChain ? chain.dataUpdatedAt : undefined} /></span>
               <span className="text-tertiary">NO {noProb}%</span>
             </div>
             <div className="w-full h-2 rounded-full bg-outline-variant overflow-hidden flex">
@@ -166,7 +166,7 @@ const MarketCard = ({ href, category, onChainMarketId, reasoningTraces, expiry, 
           </div>
           <div className="grid grid-cols-2 gap-4 border-t border-outline-variant/30 pt-4">
             <div>
-              <p className="text-label-caps text-on-surface-variant uppercase mb-1">Liquidity<SourceTag source={fromChain ? "chain" : "backend"} /></p>
+              <p className="text-label-caps text-on-surface-variant uppercase mb-1">Liquidity<SourceTag source={fromChain ? "chain" : "backend"} ledger={view?.ledger} readAt={fromChain ? chain.dataUpdatedAt : undefined} /></p>
               <p className="font-data-mono text-body-md">{liquidity}</p>
             </div>
             <div>
