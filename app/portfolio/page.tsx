@@ -9,6 +9,7 @@ import { useWallet } from "@/lib/contexts/WalletContext";
 import { useRedeemAll, type PreparedWriteReview } from "@/lib/hooks/useStellar";
 import { shouldSkipTxReview, TxReview, TxReviewPreferenceControl } from "@/components/tx-review";
 import type { ReviewModel } from "@/lib/stellar/tx-decode";
+import { TreasuryRiskLimits } from "@/components/treasury-risk-limits";
 
 const TerminalLog = () => {
   const [logs, setLogs] = useState([
@@ -348,6 +349,8 @@ export default function PortfolioPage() {
           </div>
         </div>
       </section>
+
+      <TreasuryRiskLimits backendCapitalRaw={summary?.availableCapitalRaw} />
 
       <section className="mb-12 rounded-xl border border-outline-variant bg-white p-6 shadow-sm" aria-labelledby="connected-redemptions-title">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">

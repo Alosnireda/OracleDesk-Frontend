@@ -55,3 +55,13 @@ the contract's integer-rounded `calc_sell` math, then confirms the result with
 `quote_sell`. A view such as `quote_sell_shares(market_id, outcome, shares) ->
 { collateral_out, shares_in }` would provide the exact inversion on-chain and
 avoid repeated local work and quote simulations.
+
+## 6. Expose treasury per-market exposure and the paused flag
+
+The `/portfolio` risk panel reads `get_config`, `daily_usage` and
+`available_capital` from the treasury. Two facts it would also show are only
+reachable from raw storage today: how much of `max_market` a market has used
+(`DataKey::Market(u64)` → `MarketExposure { amount, open }`), and whether the
+treasury is paused. Read-only getters `market_exposure(market_id) ->
+MarketExposure` and `paused() -> bool` would let the frontend show both
+without reading storage keys that the contract may change.
