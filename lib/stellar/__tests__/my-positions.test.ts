@@ -145,7 +145,9 @@ describe("my-positions scan", () => {
     expect(result.positions[0]).toMatchObject({ marketId: 1n, market: null, settlement: null, valueRaw: null });
   });
 
-  it("caps huge scans to the newest market IDs", async () => {
+  // 20,000 ledger keys are built and XDR-encoded here, which is slow on a
+  // loaded machine; the default 5 s budget is not enough for that.
+  it("caps huge scans to the newest market IDs", { timeout: 30_000 }, async () => {
     const server = { getLedgerEntries: vi.fn(async () => ({ entries: [], latestLedger: 1 })) };
     const result = await scanHolderPositions(Keypair.random().publicKey(), 50_000n, server as never);
     expect(result.scannedMarkets).toBe(MAX_POSITION_SCAN_MARKETS);

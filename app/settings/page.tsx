@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useWallet } from "@/lib/contexts/WalletContext";
 import { useSettings } from "@/lib/settings/useSettings";
+import { PushSettings } from "@/components/settings/push-settings";
 import { MAX_SLIPPAGE_BPS, SLIPPAGE_PRESET_BPS, parseSlippagePercent } from "@/lib/settings/settings";
 import { NETWORK_LABEL } from "@/lib/stellar/config";
 import { shortAddress } from "@/lib/stellar/units";

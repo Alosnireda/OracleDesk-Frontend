@@ -13,14 +13,28 @@ const TABLES: Record<ContractName, Record<number, { message: string }>> = {
 };
 
 /**
- * Messages for error names that mean different things in different contracts
- * (NotInitialized exists in four of them). Checked before FRIENDLY, and only
- * for numeric codes from that contract's own table.
+ * Per-contract overrides for error names whose meaning differs by contract
+ * (e.g. "MarketNotOpen" means "not open for trading" in market-core but
+ * "no open exposure" in treasury; "NotInitialized" means something different
+ * in each contract). Checked before the shared FRIENDLY map.
  */
 const CONTRACT_FRIENDLY: Partial<Record<ContractName, Record<string, string>>> = {
   treasury: {
     NotInitialized: "The treasury isn't set up yet.",
     InvalidConfig: "The treasury's risk settings are invalid.",
+    MarketNotOpen: "The treasury has no open exposure in this market.",
+  },
+  resolver: {
+    NotSigner: "Your wallet isn't one of this market's signers.",
+    AlreadyAttested: "You've already attested this outcome for this market.",
+    ThresholdNotReached: "Not enough signers have attested this outcome yet.",
+    DisputeActive: "A dispute is active for this market's resolution.",
+    NoProposal: "There's no resolution proposal for this market yet.",
+    AlreadyFinalized: "This market has already been finalized.",
+    MarketNotClosed: "This market hasn't closed yet.",
+    WrongMode: "This action doesn't match this market's resolution mode.",
+    StalePrice: "The price feed is too stale to resolve this market.",
+    PriceUnavailable: "No price is available to resolve this market yet.",
   },
 };
 
@@ -60,30 +74,6 @@ export const FRIENDLY: Record<string, string> = {
   // shared across contracts
   NotInitialized: "This contract hasn't been initialized yet.",
   InvalidFee: "Fees can be at most 10% (1000 bps).",
-};
-
-/**
- * Per-contract overrides for error names whose meaning differs by contract
- * (e.g. "MarketNotOpen" means "not open for trading" in market-core but
- * "no open exposure" in treasury). Checked before the shared FRIENDLY map.
- */
-const CONTRACT_FRIENDLY: Partial<Record<ContractName, Record<string, string>>> = {
-  resolver: {
-    NotSigner: "Your wallet isn't one of this market's signers.",
-    AlreadyAttested: "You've already attested this outcome for this market.",
-    ThresholdNotReached: "Not enough signers have attested this outcome yet.",
-    DisputeActive: "A dispute is active for this market's resolution.",
-    NoProposal: "There's no resolution proposal for this market yet.",
-    AlreadyFinalized: "This market has already been finalized.",
-    MarketNotClosed: "This market hasn't closed yet.",
-    WrongMode: "This action doesn't match this market's resolution mode.",
-    StalePrice: "The price feed is too stale to resolve this market.",
-    PriceUnavailable: "No price is available to resolve this market yet.",
-  },
-  treasury: {
-    MarketNotOpen: "The treasury has no open exposure in this market.",
-    InvalidConfig: "The treasury isn't configured correctly.",
-  },
 };
 
 import type { rpc } from "@stellar/stellar-sdk";

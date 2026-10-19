@@ -29,15 +29,12 @@ import { MIN_TX_TIMEOUT_S, SAFETY_MARGIN_S } from "@/lib/stellar/deadline";
 import { TradeTape } from "@/components/market/trade-tape";
 import { PendingValue } from "@/components/pending-value";
 import { PushVerifiedStatus } from "@/components/push-verified-status";
+import { SourceTag } from "@/components/ui/source-tag";
+import { isStale } from "@/lib/stellar/health";
+import { useHealth } from "@/lib/health/HealthProvider";
 
-const SourceTag = ({ source }: { source: "chain" | "backend" }) => (
-  <span
-    title={source === "chain" ? "Read live from the market contract" : "OracleDesk backend estimate; may lag the chain"}
-    className={`ml-1 text-[9px] font-bold uppercase px-1 rounded ${source === "chain" ? "bg-secondary-container text-on-secondary-container" : "bg-surface-container-highest text-on-surface-variant"}`}
-  >
-    {source}
-  </span>
-);
+/** A chain read older than this must be refreshed before a trade is signed. */
+const MARKET_STALE_AFTER_SEC = 60;
 
 function useDebounced<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -103,6 +100,7 @@ function MarketQuickViewContent() {
   const chain = useOnChainMarket(onChainMarketId);
 
   const { address, isConnected, isWrongNetwork, openModal } = useWallet();
+  const health = useHealth();
   // Saved in /settings; useSyncExternalStore makes it available before the
   // first visible quote even though pages are statically prerendered.
   const { settings } = useSettings(address);

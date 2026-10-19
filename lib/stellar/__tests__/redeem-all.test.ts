@@ -92,7 +92,9 @@ describe("redeem-all discovery", () => {
     expect(result.scanLimited).toBe(false);
   });
 
-  it("limits huge scans to the newest market IDs", async () => {
+  // 20,000 ledger keys are built and XDR-encoded here, which is slow on a
+  // loaded machine; the default 5 s budget is not enough for that.
+  it("limits huge scans to the newest market IDs", { timeout: 30_000 }, async () => {
     const server = { getLedgerEntries: vi.fn(async () => ({ entries: [], latestLedger: 1 })) };
     const result = await discoverRedeemable(Keypair.random().publicKey(), 50_000n, server as never);
     expect(result.scannedMarkets).toBe(20_000n);

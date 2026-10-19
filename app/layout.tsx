@@ -58,13 +58,15 @@ export default function RootLayout({
         <PwaRegistrar>
           <WalletProvider>
             <RealtimeProvider>
-              <InboxProvider>
-                <Navbar />
-                <RpcDegradedBanner />
-                {children}
-                <Footer />
-                <DebugMount />
-              </InboxProvider>
+              <HealthProvider>
+                <InboxProvider>
+                  <Navbar />
+                  <RpcDegradedBanner />
+                  {children}
+                  <Footer />
+                  <DebugMount />
+                </InboxProvider>
+              </HealthProvider>
             </RealtimeProvider>
           </WalletProvider>
         </PwaRegistrar>
