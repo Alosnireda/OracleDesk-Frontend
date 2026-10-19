@@ -12,7 +12,7 @@ import { useUpdatePending } from "@/lib/pwa/update-context";
 import { describeError, describeSubmission, UserFacingError, type ContractName } from "@/lib/stellar/errors";
 import { BPS, priceYesBps } from "@/lib/stellar/generated/fpmm";
 import type { Config, Market as OnChainMarket, Position } from "@/lib/stellar/generated/market-core";
-import { fetchAndVerifyTrace, type TraceCheck } from "@/lib/stellar/trace";
+import { verifyTraceInWorker, type TraceCheck } from "@/lib/stellar/trace";
 import { read, submit, bytesToHex, simulatedWithLedger, simulated } from "@/lib/stellar/typed-call";
 import { maxIn, minOut } from "@/lib/stellar/units";
 import {
@@ -144,7 +144,8 @@ async function requireUsdcTrustline(address: string): Promise<TrustlineState> {
   return state;
 }
 
-async function fetchLedgerNow(): Promise<bigint> {
+/** Close time of the latest ledger, in seconds: the clock the contracts use for time-based rules. */
+export async function fetchLedgerNow(): Promise<bigint> {
   const latest = await rpcServer().getLatestLedger();
   const response = await rpcServer().getTransactions({
     startLedger: latest.sequence,
@@ -620,7 +621,7 @@ export function useVerifiedTrace(onChainTraceId: bigint | string | null | undefi
   return useQuery({
     queryKey: stellarKeys.trace(String(onChainTraceId)),
     enabled: onChainTraceId !== null && onChainTraceId !== undefined && onChainTraceId !== "",
-    queryFn: async (): Promise<VerifiedTrace> => {
+    queryFn: async ({ signal }): Promise<VerifiedTrace> => {
       const trace = read(await reasoningRegistry().get_trace({ trace_id: toId(onChainTraceId as string) }), "reasoningRegistry");
       const onChainHash = bytesToHex(trace.trace_hash);
       return {
@@ -631,7 +632,7 @@ export function useVerifiedTrace(onChainTraceId: bigint | string | null | undefi
         ipfsCid: trace.ipfs_cid,
         onChainHash,
         publishedAt: Number(trace.published_at),
-        check: await fetchAndVerifyTrace(trace.ipfs_cid, onChainHash),
+        check: await verifyTraceInWorker(trace.ipfs_cid, onChainHash, { signal }),
       };
     },
     staleTime: 5 * 60_000,

@@ -9,7 +9,7 @@ import { getTrace } from "@/lib/api/traces";
 import { CONTRACTS, explorerAccount } from "@/lib/stellar/config";
 import { reasoningRegistry } from "@/lib/stellar/clients";
 import { read, bytesToHex } from "@/lib/stellar/typed-call";
-import { fetchAndVerifyTrace, ipfsUrl, type TraceCheck } from "@/lib/stellar/trace";
+import { ipfsUrl, verifyTraceInWorker, type GatewayAttempt, type CidCheck, type TraceCheck } from "@/lib/stellar/trace";
 
 interface VerificationResult {
   verified: boolean;
@@ -19,6 +19,46 @@ interface VerificationResult {
   storedHash: string;
   computedHash: string | null;
   reason?: string;
+  attempts?: GatewayAttempt[];
+  cidCheck?: CidCheck;
+}
+
+const GATEWAY_OUTCOME_LABEL: Record<GatewayAttempt["outcome"], string> = {
+  verified: "Verified",
+  mismatch: "Bytes don't match",
+  "http-error": "HTTP error",
+  timeout: "Timed out",
+  "too-large": "Over size limit",
+  network: "Unreachable",
+  aborted: "Stopped",
+  skipped: "Not needed",
+};
+
+const formatBytes = (bytes: number) => (bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
+
+const hostOf = (gateway: string) => {
+  try {
+    return new URL(gateway).host;
+  } catch {
+    return gateway;
+  }
+};
+
+function describeCid(cidCheck: CidCheck | undefined, status: TraceCheck["status"]): string | null {
+  switch (cidCheck) {
+    case "match":
+      return "CID check: the CID names these exact bytes.";
+    case "mismatch":
+      return status === "verified"
+        ? "CID check: the CID doesn't name these bytes, but the on-chain hash does. The publish is inconsistent."
+        : "CID check: the CID doesn't name these bytes either. The gateway may have served the wrong object.";
+    case "unsupported":
+      return "CID check: not checkable here (only single-block raw CIDs are checked).";
+    case "invalid":
+      return "CID check: not a valid CID, so it wasn't checked.";
+    default:
+      return null;
+  }
 }
 
 export default function VerifyTracePage() {
@@ -43,12 +83,16 @@ function VerifyTraceContent() {
   const [statusLabel, setStatusLabel] = useState("Ready to check this trace against the chain");
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null);
   const terminalRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
     }
   }, [terminalLogs]);
+
+  // Leaving the page stops any download still running.
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   const log = (line: string, pct: number) => {
     setTerminalLogs((prev) => [...prev, line]);
@@ -87,8 +131,24 @@ function VerifyTraceContent() {
       log(`>> [CHAIN] On-chain hash: ${storedHash}`, 50);
       log(`>> [IPFS] Fetching ${onChain.ipfs_cid}`, 60);
 
-      // 3. Fetch the exact bytes and hash them locally.
-      const check = await fetchAndVerifyTrace(onChain.ipfs_cid, storedHash);
+      // 3. Fetch the exact bytes and hash them in the trace worker.
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const check = await verifyTraceInWorker(onChain.ipfs_cid, storedHash, {
+        signal: controller.signal,
+        onProgress: ({ received, total }) => {
+          setStatusLabel(`Downloading ${formatBytes(received)}${total ? ` of ${formatBytes(total)}` : ""}`);
+          setProgress(total ? 60 + Math.min(29, Math.floor((received / total) * 30)) : 60);
+        },
+      });
+      abortRef.current = null;
+      if (controller.signal.aborted) {
+        setIsVerifying(false);
+        setStatusLabel("Verification stopped");
+        setTerminalLogs((prev) => [...prev, ">> [STOP] Download stopped. Nothing was verified."]);
+        return;
+      }
+
       const result: VerificationResult = {
         verified: check.status === "verified",
         status: check.status,
@@ -97,6 +157,8 @@ function VerifyTraceContent() {
         storedHash,
         computedHash: check.status === "unavailable" ? null : check.computedHash,
         reason: check.status === "unavailable" ? check.reason : undefined,
+        attempts: check.attempts,
+        cidCheck: check.status === "unavailable" ? undefined : check.cidCheck,
       };
       if (check.status === "unavailable") {
         log(`>> [IPFS] ${check.reason}. The content can't be checked.`, 90);
@@ -106,9 +168,12 @@ function VerifyTraceContent() {
       queryClient.setQueryData(["stellar", "trace", onChainTraceId], undefined);
       completeVerification(result);
     } catch (err) {
+      abortRef.current = null;
       fail(err instanceof Error ? err.message : "Couldn't read the trace from the chain.");
     }
   };
+
+  const stopDownload = () => abortRef.current?.abort();
 
   const completeVerification = (result: VerificationResult) => {
     setVerificationResult(result);
@@ -295,12 +360,54 @@ function VerifyTraceContent() {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {isComplete && verificationResult?.attempts && verificationResult.attempts.length > 0 && (
+              <div className="p-4 bg-surface-container-low border border-outline-variant rounded-lg space-y-3">
+                <label className="font-label-caps text-label-caps text-on-surface-variant block">GATEWAY ATTEMPTS</label>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs font-data-mono text-on-surface">
+                    <thead>
+                      <tr className="text-left text-on-surface-variant">
+                        <th className="pr-3 pb-1 font-normal">Gateway</th>
+                        <th className="pr-3 pb-1 font-normal">Outcome</th>
+                        <th className="pr-3 pb-1 font-normal">Time</th>
+                        <th className="pb-1 font-normal">Bytes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {verificationResult.attempts.map((attempt, i) => (
+                        <tr key={`${attempt.gateway}-${i}`}>
+                          <td className="pr-3 py-1">{hostOf(attempt.gateway)}</td>
+                          <td className="pr-3 py-1">
+                            {GATEWAY_OUTCOME_LABEL[attempt.outcome]}
+                            {attempt.status ? ` (${attempt.status})` : ""}
+                          </td>
+                          <td className="pr-3 py-1">{attempt.outcome === "skipped" ? "—" : `${attempt.ms} ms`}</td>
+                          <td className="py-1">{attempt.bytes !== undefined ? formatBytes(attempt.bytes) : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {describeCid(verificationResult.cidCheck, verificationResult.status) && (
+                  <p className="text-xs text-on-surface-variant">
+                    {describeCid(verificationResult.cidCheck, verificationResult.status)}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="p-6 bg-surface-container-low border-t border-outline-variant flex justify-end gap-3">
             <Link href="/reasoning" className="px-6 py-2 font-label-caps text-on-surface-variant hover:text-on-surface transition-colors uppercase">
               {isComplete ? "BACK TO FEED" : "CANCEL AUDIT"}
             </Link>
+
+            {isVerifying && !isComplete && (
+              <button className="px-6 py-2 font-label-caps text-error hover:brightness-95 transition-all uppercase" onClick={stopDownload}>
+                STOP DOWNLOAD
+              </button>
+            )}
 
             <button 
               className={`px-8 py-2 text-primary-foreground font-label-caps rounded transition-all active:scale-95 ${isComplete ? (verificationResult?.verified ? 'bg-secondary' : 'bg-error') : 'bg-primary hover:bg-primary-container'} ${(isVerifying && !isComplete) ? 'opacity-50 cursor-not-allowed' : ''}`}

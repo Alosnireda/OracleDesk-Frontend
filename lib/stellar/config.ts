@@ -69,7 +69,49 @@ sources.ADMIN_ADDRESSES = ADMIN_ADDRESSES.length ? "env" : "fallback";
 export const isAdminAddress = (address: string | null | undefined) =>
   Boolean(address) && ADMIN_ADDRESSES.includes(address as string);
 
-export const IPFS_GATEWAY = env(process.env.NEXT_PUBLIC_IPFS_GATEWAY_URL, "https://ipfs.io/ipfs", "IPFS_GATEWAY");
+export const DEFAULT_IPFS_GATEWAY = "https://ipfs.io/ipfs";
+export const MAX_IPFS_GATEWAYS = 5;
+export const DEFAULT_IPFS_MAX_TRACE_BYTES = 1024 * 1024;
+
+/**
+ * Parses a comma-separated gateway pool. Only https URLs are kept (plain http
+ * only for localhost, for local testing). Entries are de-duplicated, trailing
+ * slashes removed, and the pool is capped at MAX_IPFS_GATEWAYS. Returns an
+ * empty list when nothing valid is left, so the caller can fall back.
+ */
+export function parseGateways(raw: string | undefined): string[] {
+  const gateways: string[] = [];
+  for (const entry of (raw ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
+    let url: URL;
+    try {
+      url = new URL(entry);
+    } catch {
+      continue;
+    }
+    const localhost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && localhost)) continue;
+    const normalized = url.toString().replace(/\/+$/, "");
+    if (!gateways.includes(normalized)) gateways.push(normalized);
+    if (gateways.length === MAX_IPFS_GATEWAYS) break;
+  }
+  return gateways;
+}
+
+const ipfsGatewayEnv = process.env.NEXT_PUBLIC_IPFS_GATEWAY_URL;
+sources.IPFS_GATEWAY = ipfsGatewayEnv?.trim() ? "env" : "fallback";
+const parsedGateways = parseGateways(ipfsGatewayEnv);
+if (ipfsGatewayEnv?.trim() && parsedGateways.length === 0) {
+  console.warn(`NEXT_PUBLIC_IPFS_GATEWAY_URL has no usable https gateway; using ${DEFAULT_IPFS_GATEWAY}.`);
+}
+/** Gateways tried for trace content, in priority order. Use https (or http://localhost). */
+export const IPFS_GATEWAYS: readonly string[] = parsedGateways.length ? parsedGateways : [DEFAULT_IPFS_GATEWAY];
+export const IPFS_GATEWAY = IPFS_GATEWAYS[0]; // unchanged export for existing callers
+
+const ipfsMaxBytesEnv = Number(process.env.NEXT_PUBLIC_IPFS_MAX_TRACE_BYTES);
+/** Largest trace body read from a gateway. Larger responses are abandoned while streaming. */
+export const IPFS_MAX_TRACE_BYTES =
+  Number.isSafeInteger(ipfsMaxBytesEnv) && ipfsMaxBytesEnv > 0 ? ipfsMaxBytesEnv : DEFAULT_IPFS_MAX_TRACE_BYTES;
+sources.IPFS_MAX_TRACE_BYTES = process.env.NEXT_PUBLIC_IPFS_MAX_TRACE_BYTES?.trim() ? "env" : "fallback";
 
 /** The contracts repo's x402 trace service (per-trace unlocks). Empty if not deployed. */
 export const X402_URL = env(process.env.NEXT_PUBLIC_X402_URL, "", "X402_URL");
