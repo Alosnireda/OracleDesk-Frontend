@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Keypair, scValToNative, TransactionBuilder, xdr } from "@stellar/stellar-sdk";
 import type { AssembledTransaction } from "@stellar/stellar-sdk/contract";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletAddress, useWalletNetwork, useWalletSigner } from "@/lib/contexts/WalletContext";
 import { currentRpcUrl, marketCore, reasoningRegistry, rpcPool, token, Outcomes, rpcServer, withPinnedRpc, type OutcomeTag, type Signer } from "@/lib/stellar/clients";
 import { createMarketBatcher } from "@/lib/stellar/market-batch";
 import { DEBUG_ENABLED } from "@/lib/diagnostics/flags";
@@ -271,7 +271,9 @@ export function useOnChainMarket(id: bigint | string | null | undefined) {
     queryFn: async () =>
       newerMarketView(client.getQueryData<OnChainMarketView>(stellarKeys.market(String(id))), await fetchOnChainMarket(id as string)),
     enabled: id !== null && id !== undefined && id !== "",
-    staleTime: 15_000,
+    staleTime: Infinity,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
     // One page-level heartbeat refetches every visible market together, so
     // the batcher gets one request per refresh cycle instead of one per card.
   });
@@ -326,7 +328,9 @@ function positionOptions(client: ReturnType<typeof useQueryClient>, id: bigint |
       signal.throwIfAborted();
       return reconcileRead(client.getQueryData(queryKey), fresh, (a, b) => a.yes === b.yes && a.no === b.no, queryKey);
     },
-    staleTime: 15_000,
+    staleTime: Infinity,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
   };
 }
 export function usePosition(id: bigint | string | null | undefined, holder: string | null | undefined) {
@@ -346,8 +350,9 @@ function balanceOptions(client: ReturnType<typeof useQueryClient>, owner: string
       signal.throwIfAborted();
       return reconcileRead(client.getQueryData(queryKey), fresh, (a, b) => a === b, queryKey);
     },
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: Infinity,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
   };
 }
 export function useUsdcBalance(owner: string | null | undefined) {
@@ -442,7 +447,7 @@ export function useAccountReserve(address: string | null | undefined) {
 }
 
 export function useUsdcTrustline(owner: string | null | undefined) {
-  const { isWrongNetwork } = useWallet();
+  const { isWrongNetwork } = useWalletNetwork();
   return useQuery({
     queryKey: stellarKeys.trustline(owner ?? ""),
     enabled: Boolean(owner) && !isWrongNetwork,
@@ -665,10 +670,13 @@ export function useVerifiedTrace(onChainTraceId: bigint | string | null | undefi
 // ─── Writes ─────────────────────────────────────────────────────────────────
 
 function useWriteGuard(): () => Signer {
-  const { signer, isWrongNetwork } = useWallet();
+  const signer = useWalletSigner();
+  const { isWrongNetwork } = useWalletNetwork();
   const queryClient = useQueryClient();
   const updatePending = useUpdatePending();
-  return () => {
+  // The guard's identity is stable, so the write hooks don't get a new
+  // mutation function on every wallet change.
+  return useCallback(() => {
     // Never sign with an outdated bundle (stale contract ids or slippage logic).
     if (updatePending) {
       throw new UserFacingError({ kind: "unknown", message: "Reload to update OracleDesk before signing." });
@@ -689,7 +697,7 @@ function useWriteGuard(): () => Signer {
       });
     }
     return signer;
-  };
+  }, [signer, isWrongNetwork, queryClient, updatePending]);
 }
 
 export function useInvalidateAfterTrade() {
@@ -1320,7 +1328,7 @@ export interface RedeemAllController {
 }
 
 export function useRedeemAll(): RedeemAllController {
-  const { address } = useWallet();
+  const { address } = useWalletAddress();
   const guard = useWriteGuard();
   const queryClient = useQueryClient();
   const [discoveryState, setDiscovery] = useState<RedeemDiscovery | null>(null);

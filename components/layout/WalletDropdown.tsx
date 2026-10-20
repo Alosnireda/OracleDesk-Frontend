@@ -1,16 +1,22 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletActions, useWalletAddress, useWalletNetwork, useWalletSession } from "@/lib/contexts/WalletContext";
 import { useAccountReserve, useEnableUsdc, useRpcNetwork, useUsdcBalance, useUsdcTrustline, useUsdcBalanceState } from "@/lib/hooks/useStellar";
 import { NETWORK_LABEL, NETWORK_PASSPHRASE, TESTNET_PASSPHRASE, explorerAccount } from "@/lib/stellar/config";
 import { PendingValue } from "@/components/pending-value";
+import { DevProfiler } from "@/lib/dev/profiler";
 import { formatUsdc, formatXlm, shortAddress } from "@/lib/stellar/units";
 
-const WalletDropdown = () => {
-  const { address, isConnected, isConnecting, isWrongNetwork, openModal, disconnect, error } = useWallet();
-  const [isOpen, setIsOpen] = useState(false);
+const WalletDropdownBody = () => {
+  // Narrow hooks: the dropdown must not re-render when an unrelated part of
+  // the wallet changes (a session error, say).
+  const { address, isConnected } = useWalletAddress();
+  const { isWrongNetwork } = useWalletNetwork();
+  const { isConnecting, error } = useWalletSession();
+  const { openModal, disconnect } = useWalletActions();  const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const balance = useUsdcBalance(address);
@@ -98,11 +104,9 @@ const WalletDropdown = () => {
           </span>
         </div>
         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-          <span className="material-symbols-outlined text-[20px]">account_balance_wallet</span>
+          <Icon name="account_balance_wallet" className="text-[20px]" />
         </div>
-        <span className={`material-symbols-outlined text-on-surface-variant transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
-          expand_more
-        </span>
+        <Icon name="expand_more" className={`text-on-surface-variant transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown Menu */}
@@ -180,9 +184,10 @@ const WalletDropdown = () => {
                 onClick={copyAddress}
                 className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-surface-container rounded-lg transition-colors group"
               >
-                <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary">
-                  {copied ? "check" : "content_copy"}
-                </span>
+                <Icon
+                  name={copied ? "check" : "content_copy"}
+                  className="text-on-surface-variant group-hover:text-primary"
+                />
                 <div className="text-left">
                   <span className="block text-sm font-bold text-on-surface">{copied ? "Copied" : "Copy address"}</span>
                   <span className="block text-[10px] text-on-surface-variant font-data-mono">{truncatedAddress}</span>
@@ -196,9 +201,7 @@ const WalletDropdown = () => {
                 onClick={() => setIsOpen(false)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-surface-container rounded-lg transition-colors group"
               >
-                <span className="material-symbols-outlined text-on-surface-variant group-hover:text-primary">
-                  open_in_new
-                </span>
+                <Icon name="open_in_new" className="text-on-surface-variant group-hover:text-primary" />
                 <div className="text-left">
                   <span className="block text-sm font-bold text-on-surface">View on Stellar Expert</span>
                   <span className="block text-[10px] text-on-surface-variant uppercase">Account history</span>
@@ -214,9 +217,7 @@ const WalletDropdown = () => {
                 }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-error-container text-on-surface hover:text-on-error-container rounded-lg transition-colors group"
               >
-                <span className="material-symbols-outlined text-on-surface-variant group-hover:text-error">
-                  logout
-                </span>
+                <Icon name="logout" className="text-on-surface-variant group-hover:text-error" />
                 <div className="text-left">
                   <span className="block text-sm font-bold">Disconnect</span>
                   <span className="block text-[10px] opacity-70 uppercase">Log out of session</span>
@@ -230,4 +231,10 @@ const WalletDropdown = () => {
   );
 };
 
-export default WalletDropdown;
+export default function WalletDropdown() {
+  return (
+    <DevProfiler id="wallet-dropdown">
+      <WalletDropdownBody />
+    </DevProfiler>
+  );
+}

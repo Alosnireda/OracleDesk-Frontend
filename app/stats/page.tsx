@@ -1,4 +1,5 @@
 "use client";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 import React, { useState, useEffect } from "react";
 import { usePlatformStats } from "@/lib/hooks/usePortfolio";
@@ -24,12 +25,12 @@ const KPIStats = () => {
             <span className="font-headline-md text-headline-md">{stat.value}</span>
             {stat.change && (
               <span className="text-secondary font-label-caps text-label-caps flex items-center">
-                <span className="material-symbols-outlined text-[14px]">arrow_upward</span> {stat.change}
+                <Icon name="arrow_upward" className="text-[14px]" /> {stat.change}
               </span>
             )}
             {stat.status && (
               <span className="text-secondary font-label-caps text-label-caps flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">check_circle</span> {stat.status}
+                <Icon name="check_circle" className="text-[14px]" /> {stat.status}
               </span>
             )}
           </div>
@@ -96,7 +97,7 @@ const TopTrades = () => {
           <div key={i} className="p-4 hover:bg-surface-container-low transition-colors flex items-center justify-between group">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 ${trade.iconBg} rounded flex items-center justify-center ${trade.iconColor}`}>
-                <span className="material-symbols-outlined">{trade.icon}</span>
+                <Icon name={trade.icon as IconName} />
               </div>
               <div>
                 <p className="font-label-caps text-label-caps text-on-surface font-bold">{trade.title}</p>
@@ -235,7 +236,7 @@ export default function StatsPage() {
       {/* Institutional Transparency */}
       <section className="bg-surface-container-low border border-outline-variant rounded-lg p-8 text-center space-y-4">
         <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center mx-auto text-on-primary">
-          <span className="material-symbols-outlined">verified_user</span>
+          <Icon name="verified_user" />
         </div>
         <div className="max-w-2xl mx-auto space-y-2">
           <h2 className="font-headline-md text-headline-md text-on-surface">Institutional-Grade Transparency</h2>
@@ -246,10 +247,10 @@ export default function StatsPage() {
         </div>
         <div className="flex justify-center gap-4 pt-4">
           <button className="bg-white border border-outline-variant px-6 py-2 font-label-caps text-label-caps rounded-lg hover:shadow-sm transition-all flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">download</span> Download Report
+            <Icon name="download" className="text-[18px]" /> Download Report
           </button>
           <button className="bg-white border border-outline-variant px-6 py-2 font-label-caps text-label-caps rounded-lg hover:shadow-sm transition-all flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">code</span> View Explorer
+            <Icon name="code" className="text-[18px]" /> View Explorer
           </button>
         </div>
       </section>

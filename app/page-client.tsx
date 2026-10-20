@@ -1,4 +1,5 @@
 "use client";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 import React from "react";
 import Link from "next/link";
@@ -44,7 +45,7 @@ const AgentActivityFeed = () => {
     <div className="bg-on-background rounded-xl overflow-hidden shadow-2xl border border-outline border-opacity-30">
       <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-white/5">
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-secondary animate-pulse motion-reduce:animate-none">monitoring</span>
+          <Icon name="monitoring" className="text-secondary animate-pulse motion-reduce:animate-none" />
           <h3 className="font-headline-sm text-headline-sm text-white uppercase tracking-widest text-xs">Live Agent Activity</h3>
         </div>
         <span className="text-white/30 text-[9px] font-data-mono uppercase">Stellar Testnet</span>
@@ -70,7 +71,7 @@ const ProtocolActivity = () => {
   return (
     <div className="bg-surface-container-low border border-outline-variant rounded-xl p-6 shadow-sm flex flex-col h-full">
       <div className="flex items-center gap-2 mb-6 text-on-surface">
-        <span className="material-symbols-outlined text-primary">hub</span>
+        <Icon name="hub" className="text-primary" />
         <h3 className="font-headline-sm text-headline-sm uppercase tracking-tight text-sm">Protocol Activity</h3>
         <DemoBadge className="ml-auto" />
       </div>
@@ -126,7 +127,7 @@ const Hero = () => {
             animate={{ opacity: 1, y: 0 }}
             className="inline-flex items-center gap-2 bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full mb-6"
           >
-            <span className="material-symbols-outlined text-[16px]" style={{ fontVariationSettings: '"FILL" 1' }}>bolt</span>
+            <Icon name="bolt" filled className="text-[16px]" />
             <span className="font-label-caps text-label-caps">Institutional Grade Intelligence</span>
           </motion.div>
           <motion.h1 
@@ -152,7 +153,7 @@ const Hero = () => {
             className="flex flex-wrap gap-4"
           >
             <Link href="/markets" className="bg-primary text-primary-foreground px-8 py-4 rounded-lg font-label-caps text-label-caps tracking-widest hover:brightness-110 transition-all flex items-center gap-2">
-              BROWSE MARKETS <span className="material-symbols-outlined">trending_up</span>
+              BROWSE MARKETS <Icon name="trending_up" />
             </Link>
             <Link href="/reasoning" className="border border-outline text-primary px-8 py-4 rounded-lg font-label-caps text-label-caps tracking-widest hover:bg-surface-container-low transition-all text-center">
               VIEW AI FORECASTS
@@ -227,7 +228,7 @@ const Hero = () => {
 
 interface HomeMarketCardProps {
   id?: string;
-  icon: string;
+  icon: IconName;
   category: string;
   platform: string;
   change: string;
@@ -243,7 +244,7 @@ const MarketCard = ({ id, icon, category, platform, change, title, prob, volume,
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center gap-3">
           <div className={`w-10 h-10 rounded-lg bg-${color}/10 flex items-center justify-center text-${color}`}>
-            <span className="material-symbols-outlined">{icon}</span>
+            <Icon name={icon} />
           </div>
           <div className="flex flex-col">
             <span className="text-[9px] font-bold uppercase tracking-tighter text-primary">
@@ -291,7 +292,7 @@ const MarketsGrid = () => {
         </div>
         <div className="flex gap-2">
           <Link href="/markets" className="p-2 border border-outline-variant rounded hover:bg-white transition-colors flex items-center gap-2 font-label-caps text-label-caps">
-            VIEW ALL <span className="material-symbols-outlined">arrow_forward</span>
+            VIEW ALL <Icon name="arrow_forward" />
           </Link>
         </div>
       </div>
@@ -302,7 +303,7 @@ const MarketsGrid = () => {
           ))
         ) : markets.length > 0 ? (
           markets.map((m) => {
-            let icon = 'policy';
+            let icon: IconName = 'policy';
             let color = 'secondary';
             
             if (m.category === 'CRYPTO') {
@@ -339,7 +340,7 @@ const MarketsGrid = () => {
           })
         ) : (
           <div className="col-span-full py-12 text-center bg-surface-container-low rounded-xl border border-outline-variant">
-            <span className="material-symbols-outlined text-outline text-4xl mb-4">search_off</span>
+            <Icon name="search_off" className="text-outline text-4xl mb-4" />
             <p className="text-on-surface-variant font-medium">No live markets found.</p>
             <p className="text-on-surface-variant/70 text-sm mt-2">Check back later or deploy a new market from the admin terminal.</p>
           </div>
@@ -368,7 +369,7 @@ const ReasoningSection = () => {
         </div>
         <div className="order-1 lg:order-2">
           <div className="flex items-center gap-2 mb-4 text-primary">
-            <span className="material-symbols-outlined">psychology</span>
+            <Icon name="psychology" />
             <span className="font-label-caps">TRANSPARENT REASONING</span>
           </div>
           <h2 className="font-display-lg text-display-lg text-on-background mb-6">Trust, but verify with Oracle Traces.</h2>
@@ -378,7 +379,7 @@ const ReasoningSection = () => {
           <ul className="space-y-6">
             <li className="flex items-start gap-4">
               <div className="bg-primary-fixed p-2 rounded">
-                <span className="material-symbols-outlined text-primary">verified</span>
+                <Icon name="verified" className="text-primary" />
               </div>
               <div>
                 <h4 className="font-headline-sm">Verifiable AI Chains</h4>
@@ -387,7 +388,7 @@ const ReasoningSection = () => {
             </li>
             <li className="flex items-start gap-4">
               <div className="bg-secondary-fixed p-2 rounded">
-                <span className="material-symbols-outlined text-primary">hub</span>
+                <Icon name="hub" className="text-primary" />
               </div>
               <div>
                 <h4 className="font-headline-sm">Multi-Model Consensus</h4>
@@ -428,7 +429,7 @@ const PortfolioAnalytics = () => {
         </div>
         <div className="col-span-12 lg:col-span-5 bg-primary-container text-on-primary-container p-6 rounded-xl shadow-sm flex flex-col justify-between h-full">
           <div>
-            <span className="material-symbols-outlined text-[32px] mb-2">workspace_premium</span>
+            <Icon name="workspace_premium" className="text-[32px] mb-2" />
             <h4 className="font-headline-sm mb-2">Oracle Premium</h4>
             <p className="text-body-md text-on-primary-container/80 mb-4">Unlock advanced trace depth and lower trade fees with the Premium pass.</p>
           </div>

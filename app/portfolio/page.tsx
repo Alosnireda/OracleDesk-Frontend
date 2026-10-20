@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
@@ -10,6 +11,7 @@ import { useRedeemAll, type PreparedWriteReview } from "@/lib/hooks/useStellar";
 import { shouldSkipTxReview, TxReview, TxReviewPreferenceControl } from "@/components/tx-review";
 import type { ReviewModel } from "@/lib/stellar/tx-decode";
 import { TreasuryRiskLimits } from "@/components/treasury-risk-limits";
+import { VirtualTableBody } from "@/components/ui/virtual-list";
 
 const TerminalLog = () => {
   const [logs, setLogs] = useState([
@@ -55,7 +57,7 @@ const TerminalLog = () => {
           <div className="w-3 h-3 rounded-full bg-primary-fixed"></div>
           <span className="font-data-mono text-[11px] text-surface-variant ml-4 uppercase tracking-widest">Transaction & Performance Log</span>
         </div>
-        <span className="material-symbols-outlined text-surface-variant text-[18px]">terminal</span>
+        <Icon name="terminal" className="text-surface-variant text-[18px]" />
       </div>
       <div 
         ref={terminalRef}
@@ -88,11 +90,16 @@ interface PositionRowProps {
   status: string;
   resolved?: boolean;
   claimable?: boolean;
+  ariaRowIndex?: number;
 }
 
-const PositionRow = ({ market, category, platform, side, sideColor, entry, prob, yesNo, size, pnl, pnlPercent, pnlColor, status, resolved, claimable }: PositionRowProps) => {
+const PositionRow = ({ market, category, platform, side, sideColor, entry, prob, yesNo, size, pnl, pnlPercent, pnlColor, status, resolved, claimable, ariaRowIndex }: PositionRowProps) => {
   return (
-    <tr className={`transition-colors border-b border-outline-variant hover:bg-surface-container/50 ${resolved ? 'bg-surface-container-highest' : ''}`}>
+    <tr
+      aria-rowindex={ariaRowIndex}
+      data-virtual-table-row={ariaRowIndex !== undefined ? ariaRowIndex - 2 : undefined}
+      className={`transition-colors border-b border-outline-variant hover:bg-surface-container/50 ${resolved ? 'bg-surface-container-highest' : ''}`}
+    >
       <td className="px-6 py-4 font-body-md text-on-surface max-w-xs">
         <span className="block truncate font-semibold">{market}</span>
         <span className="text-[11px] text-outline uppercase">{category} • {platform}</span>
@@ -223,9 +230,10 @@ export default function PortfolioPage() {
             </div>
             <div className="text-[10px] font-bold text-on-surface-variant mt-1">Backend record of the agent&apos;s holdings</div>
             <div className={`text-[12px] font-bold ${(summary?.dailyPnl ?? 0) >= 0 ? 'text-secondary' : 'text-tertiary'} flex items-center gap-1 mt-1`}>
-              <span className="material-symbols-outlined text-[14px]">
-                {(summary?.dailyPnl ?? 0) >= 0 ? 'arrow_upward' : 'arrow_downward'}
-              </span> 
+              <Icon
+                name={(summary?.dailyPnl ?? 0) >= 0 ? 'arrow_upward' : 'arrow_downward'}
+                className="text-[14px]"
+              /> 
               {isSummaryLoading ? "0.0%" : `${Math.abs(summary?.dailyPnl ?? 0).toFixed(2)}%`}
             </div>
           </div>
@@ -330,7 +338,7 @@ export default function PortfolioPage() {
       <section className="mb-12 bg-primary-container/10 border border-primary/20 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-8">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center text-on-primary">
-            <span className="material-symbols-outlined">account_balance_wallet</span>
+            <Icon name="account_balance_wallet" />
           </div>
           <div>
             <h3 className="font-headline-sm text-headline-sm">Agent Treasury</h3>
@@ -500,9 +508,12 @@ export default function PortfolioPage() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left min-w-[1000px]">
+          <table
+            className="w-full border-collapse text-left min-w-[1000px]"
+            aria-rowcount={positions.length > 0 ? positions.length + 1 : undefined}
+          >
             <thead>
-              <tr className="bg-surface font-label-caps text-label-caps text-outline border-b border-outline-variant">
+              <tr aria-rowindex={1} className="bg-surface font-label-caps text-label-caps text-outline border-b border-outline-variant">
                 <th className="px-6 py-4 font-semibold">MARKET</th>
                 <th className="px-4 py-4 font-semibold">SIDE</th>
                 <th className="px-4 py-4 font-semibold text-right">ENTRY</th>
@@ -513,19 +524,29 @@ export default function PortfolioPage() {
                 <th className="px-6 py-4 font-semibold text-right">ACTIONS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {isPositionsLoading ? (
+            {isPositionsLoading ? (
+              <tbody className="divide-y divide-outline-variant">
                 <tr>
                   <td colSpan={8} className="px-6 py-8 text-center text-on-surface-variant">Loading positions...</td>
                 </tr>
-              ) : positions.length === 0 ? (
+              </tbody>
+            ) : positions.length === 0 ? (
+              <tbody className="divide-y divide-outline-variant">
                 <tr>
                   <td colSpan={8} className="px-6 py-8 text-center text-on-surface-variant">No active positions found.</td>
                 </tr>
-              ) : (
-                positions.map((pos) => (
+              </tbody>
+            ) : (
+              <VirtualTableBody
+                items={positions}
+                colSpan={8}
+                getKey={(pos) => pos.id}
+                estimateSize={() => 68}
+                restorationKey="portfolio_positions"
+                renderRow={(pos, _idx, a11y) => (
                   <PositionRow 
                     key={pos.id}
+                    ariaRowIndex={a11y["aria-rowindex"]}
                     market={pos.market.question}
                     category={pos.market.category}
                     platform={pos.market.onChainMarketId !== null ? `On-chain #${pos.market.onChainMarketId}` : "Not on-chain"}
@@ -542,9 +563,9 @@ export default function PortfolioPage() {
                     resolved={pos.status !== 'OPEN'}
                     claimable={pos.status === 'CLOSED'}
                   />
-                ))
-              )}
-            </tbody>
+                )}
+              />
+            )}
           </table>
         </div>
       </section>
@@ -557,7 +578,7 @@ export default function PortfolioPage() {
         <aside className="flex flex-col gap-6">
           <div className="bg-surface-container-low border border-outline-variant rounded p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+              <Icon name="psychology" filled className="text-primary" />
               <h3 className="font-headline-sm text-headline-sm">Oracle Insight</h3>
             </div>
             <p className="font-body-md text-body-md text-on-surface-variant mb-4 leading-relaxed">

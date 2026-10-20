@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-// import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Geist, Geist_Mono, Inter } from "next/font/google";
 import Navbar from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { WalletProvider } from "@/lib/contexts/WalletContext";
@@ -10,19 +10,25 @@ import { InboxProvider } from "@/lib/notifications/InboxProvider";
 import { PwaRegistrar } from "@/components/pwa/pwa-registrar";
 import { DebugMount } from "@/components/debug/debug-mount";
 import { RpcDegradedBanner } from "@/components/debug/RpcPanel";
-import { X402RecoveryBanner } from "@/components/trace/x402-recovery-banner";
+import { WebVitals } from "@/app/web-vitals";
 
-const geistSans = {
+const geistSans = Geist({
+  subsets: ["latin"],
   variable: "--font-geist-sans",
-};
+  display: "swap",
+});
 
-const geistMono = {
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
   variable: "--font-geist-mono",
-};
+  display: "swap",
+});
 
-const inter = {
+const inter = Inter({
+  subsets: ["latin"],
   variable: "--font-inter",
-};
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "OracleDesk | Institutional-Grade AI Prediction Terminal",
@@ -49,24 +55,20 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} h-full antialiased`}
     >
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block"
-          rel="stylesheet"
-        />
-      </head>
       <body className="min-h-full flex flex-col font-body-md text-on-surface">
         <PwaRegistrar>
           <WalletProvider>
             <RealtimeProvider>
-              <InboxProvider>
-                <Navbar />
-                <RpcDegradedBanner />
-                <X402RecoveryBanner />
-                {children}
-                <Footer />
-                <DebugMount />
-              </InboxProvider>
+              <HealthProvider>
+                <InboxProvider>
+                  <Navbar />
+                  <RpcDegradedBanner />
+                  {children}
+                  <Footer />
+                  <DebugMount />
+                  <WebVitals />
+                </InboxProvider>
+              </HealthProvider>
             </RealtimeProvider>
           </WalletProvider>
         </PwaRegistrar>

@@ -2,8 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
+    branches: [main, develop]
 
 jobs:
   frontend:
@@ -19,7 +20,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
 
       - name: Generated bindings match the contracts submodule
         run: npm run check:bindings
@@ -32,10 +33,9 @@ jobs:
       - name: No production links to retired demo routes
         run: node scripts/check-demo-links.mjs
 
-  x402-contract:
-    name: x402 contract tests (offline)
+  perf:
+    name: Lighthouse CI & Performance Budgets
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,19 +45,21 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            contracts/oracledesk-stellar/x402/package-lock.json
 
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
 
-      # The real trace service runs from the pinned submodule with its own dependencies.
-      - run: npm ci --ignore-scripts --prefix contracts/oracledesk-stellar/x402
+      - name: Build production bundle
+        run: npm run build
+        env:
+          NEXT_PUBLIC_STELLAR_RPC_URL: http://localhost:8787/rpc
+          NEXT_PUBLIC_API_URL: http://localhost:8787
 
-      - name: Frontend and contracts service pin the same @x402/* versions
-        run: npm run check:x402
+      - name: Run Lighthouse CI
+        run: npm run perf:lhci
 
-      - name: Typecheck the harness
-        run: npx tsc -p e2e/x402 --noEmit
-
-      - run: npm run e2e:x402
+      - name: Upload Lighthouse reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/reports/

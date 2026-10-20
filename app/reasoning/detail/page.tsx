@@ -1,185 +1,90 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
-import React, { Suspense, useState, useEffect, useRef } from "react";
+import React, { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { X402UnlockPanel } from "@/components/trace/x402-unlock-panel";
+import { getTrace, type ReasoningTrace } from "@/lib/api/traces";
+import { fetchAndVerifyTrace } from "@/lib/stellar/trace";
+import { SafeTraceViewer } from "@/components/safe-trace-viewer";
 
-/** The x402 unlock panel for `?onChainTraceId=` (reasoning-registry id); nothing without it. */
-function TraceUnlock() {
-  const onChainTraceId = useSearchParams().get("onChainTraceId");
-  if (!onChainTraceId || !/^\d+$/.test(onChainTraceId)) return null;
+export default function ReasoningTraceDetailPage() {
   return (
-    <div className="mb-6">
-      <X402UnlockPanel onChainTraceId={onChainTraceId} />
-    </div>
+    <Suspense fallback={<main className="min-h-[calc(100vh-64px)] flex items-center justify-center">Loading…</main>}>
+      <ReasoningTraceDetailContent />
+    </Suspense>
   );
 }
 
-export default function ReasoningTraceDetailPage() {
-  const [logs, setLogs] = useState([
-    { id: 1, time: "14:22:01", type: "INFO", message: "Initializing reasoning matrix for contract ID #882..." },
-    { id: 2, time: "14:22:02", type: "INFO", message: "Weights recalculated via Bayesian inference module." },
-    { id: 3, time: "14:22:03", type: "WARN", message: "Liquidity skew detected on Uniswap v3 YES/NO pair." },
-    { id: 4, time: "14:22:04", type: "INFO", message: "Signal verification complete. Confidence at 92.41%." },
-    { id: 5, time: "14:22:05", type: "INFO", message: "Awaiting user execution..." },
-  ]);
+function ReasoningTraceDetailContent() {
+  const searchParams = useSearchParams();
+  const traceId = searchParams.get("traceId");
 
-  const logStreamRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const extraLogs = [
-      "FETCHING REAL-TIME FED DOT PLOT...",
-      "RE-INDEXING S&P 500 VOLATILITY INDEX...",
-      "CROSS-REFERENCING BLOOMBERG DATA FLOW...",
-      "NEURAL WEIGHTS STABILIZED.",
-      "OPTIMIZING TRANSACTION GAS ESTIMATES...",
-    ];
-
-    const interval = setInterval(() => {
-      const time = new Date().toLocaleTimeString([], { hour12: false });
-      const message = extraLogs[Math.floor(Math.random() * extraLogs.length)];
-      
-      setLogs((prevLogs) => {
-        const newLogs = [
-          ...prevLogs,
-          { id: Date.now(), time, type: "INFO", message },
-        ];
-        if (newLogs.length > 20) return newLogs.slice(1);
-        return newLogs;
-      });
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const [trace, setTrace] = useState<ReasoningTrace | null>(null);
+  const [verifiedContent, setVerifiedContent] = useState<unknown>(null);
+  const [isLoading, setIsLoading] = useState(Boolean(traceId));
+  const [error, setError] = useState<string | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<"verified" | "mismatch" | "unavailable" | "none">("none");
 
   useEffect(() => {
-    if (logStreamRef.current) {
-      logStreamRef.current.scrollTop = logStreamRef.current.scrollHeight;
+    if (!traceId) {
+      setIsLoading(false);
+      return;
     }
-  }, [logs]);
+
+    let isCancelled = false;
+    async function loadTrace() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await getTrace(traceId as string);
+        if (isCancelled) return;
+        setTrace(data);
+
+        if (data.ipfsCid && data.traceHash) {
+          const check = await fetchAndVerifyTrace(data.ipfsCid, data.traceHash);
+          if (isCancelled) return;
+          if (check.status === "verified") {
+            setVerificationStatus("verified");
+            setVerifiedContent(check.content);
+          } else if (check.status === "mismatch") {
+            setVerificationStatus("mismatch");
+          } else {
+            setVerificationStatus("unavailable");
+          }
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load trace");
+        }
+      } finally {
+        if (!isCancelled) setIsLoading(false);
+      }
+    }
+
+    loadTrace();
+    return () => {
+      isCancelled = true;
+    };
+  }, [traceId]);
 
   return (
     <main className="pt-24 pb-12 px-gutter max-w-container-max-width mx-auto flex-1 flex flex-col">
-      <Suspense fallback={null}>
-        <TraceUnlock />
-      </Suspense>
-      {/* Modal Wrapper (Simulated as Full Page Component) */}
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row h-[calc(100vh-240px)] min-h-[600px]">
-        {/* Left Panel: Reasoning Trace */}
-        <div className="flex-1 flex flex-col border-r border-outline-variant bg-white overflow-hidden">
-          <div className="p-6 border-b border-outline-variant flex justify-between items-center bg-white z-10">
-            <div>
-              <h1 className="font-headline-md text-headline-md text-on-surface mb-1">
-                Reasoning Trace: TRD-7724
-              </h1>
-              <p className="font-body-md text-on-surface-variant">
-                Market: Will Fed cut rates by &gt;25bps in September?
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <span className="bg-surface-container-high text-primary px-3 py-1 rounded-full text-label-caps font-label-caps">
-                STABLE_DIFFUSION_4.0
-              </span>
-              <span className="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-label-caps font-label-caps">
-                92% CONFIDENCE
-              </span>
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-            <div className="max-w-3xl mx-auto space-y-8 pl-6 relative">
-              {/* Chain of Thought Step 1 */}
-              <div className="reasoning-node relative">
-                <div className="absolute -left-[22px] top-2 w-3 h-3 rounded-full bg-primary border-2 border-white z-10"></div>
-                <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-label-caps text-label-caps text-primary uppercase">
-                      Step 01: Initial Corpus Ingestion
-                    </span>
-                    <span className="font-data-mono text-data-mono text-on-surface-variant">
-                      1.4ms
-                    </span>
-                  </div>
-                  <p className="font-body-md text-on-surface">
-                    Parsed 14,200 data points from Bloomberg Terminal, FOMC minutes, and CME FedWatch tool. Identified conflicting signals between inflation trajectory and labor market softening.
-                  </p>
-                </div>
-              </div>
-
-              {/* Chain of Thought Step 2 */}
-              <div className="reasoning-node relative">
-                <div className="absolute -left-[22px] top-2 w-3 h-3 rounded-full bg-primary border-2 border-white z-10"></div>
-                <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-label-caps text-label-caps text-primary uppercase">
-                      Step 02: Cross-Source Weighting
-                    </span>
-                    <span className="font-data-mono text-data-mono text-on-surface-variant">
-                      0.8ms
-                    </span>
-                  </div>
-                  <div className="space-y-3">
-                    <p className="font-body-md text-on-surface">
-                      Applying source credibility multipliers. Fed Official statements weighted at 0.85. Yield curve inversion analysis weighted at 0.62.
-                    </p>
-                    <div className="grid grid-cols-3 gap-2 py-2">
-                      <div className="h-1 bg-primary rounded-full"></div>
-                      <div className="h-1 bg-primary rounded-full"></div>
-                      <div className="h-1 bg-outline-variant rounded-full"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Chain of Thought Step 3 (AI Insight Special) */}
-              <div className="reasoning-node relative">
-                <div className="absolute -left-[22px] top-2 w-3 h-3 rounded-full bg-primary border-2 border-white z-10"></div>
-                <div className="bg-[#f0f9fa] p-4 rounded-lg border border-primary-container/30">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="material-symbols-outlined text-primary text-sm">
-                      psychology
-                    </span>
-                    <span className="font-label-caps text-label-caps text-primary uppercase">
-                      Step 03: Oracle Insight (Sentiment Analysis)
-                    </span>
-                  </div>
-                  <p className="font-body-md text-on-surface italic">
-                    &quot;The consensus narrative is currently anchored in a 25bps cut. However, historical volatility analysis during election years suggests a 42% higher probability of aggressive dovishness than the market is currently pricing in.&quot;
-                  </p>
-                </div>
-              </div>
-
-              {/* Chain of Thought Step 4 */}
-              <div className="reasoning-node relative">
-                <div className="absolute -left-[22px] top-2 w-3 h-3 rounded-full bg-primary border-2 border-white z-10"></div>
-                <div className="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-label-caps text-label-caps text-primary uppercase">
-                      Step 04: Final Probability Synthesis
-                    </span>
-                    <span className="font-data-mono text-data-mono text-on-surface-variant">
-                      2.1ms
-                    </span>
-                  </div>
-                  <p className="font-body-md text-on-surface mb-4">
-                    Monte Carlo simulation (n=1,000,000) yields a skew toward the &apos;YES&apos; outcome based on tail-risk events in regional banking sectors.
-                  </p>
-                  {/* Probability Bar Component */}
-                  <div className="mt-4">
-                    <div className="flex justify-between font-label-caps text-[10px] mb-1">
-                      <span className="text-secondary font-bold">YES (72%)</span>
-                      <span className="text-tertiary font-bold">NO (28%)</span>
-                    </div>
-                    <div className="w-full h-4 flex rounded-full overflow-hidden bg-outline-variant">
-                      <div className="bg-secondary w-[72%] transition-all duration-700"></div>
-                      <div className="bg-tertiary w-[28%] transition-all duration-700"></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <Link
+            href="/reasoning"
+            className="flex items-center gap-1.5 text-primary hover:underline text-xs font-label-caps mb-2"
+          >
+            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            Back to Reasoning Feed
+          </Link>
+          <h1 className="font-headline-md text-headline-md text-on-surface">
+            {traceId ? `Trace Detail: ${traceId.slice(0, 12)}…` : "Reasoning Trace Detail"}
+          </h1>
+          {trace?.market?.question && (
+            <p className="font-body-md text-on-surface-variant mt-1">Market: {trace.market.question}</p>
+          )}
         </div>
 
         {/* Right Panel: Data Analysis & Actions */}
@@ -192,9 +97,7 @@ export default function ReasoningTraceDetailPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded bg-white border border-outline-variant flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">
-                    terminal
-                  </span>
+                  <Icon name="terminal" className="text-on-surface-variant" />
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between mb-1">
@@ -208,9 +111,7 @@ export default function ReasoningTraceDetailPage() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded bg-white border border-outline-variant flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">
-                    public
-                  </span>
+                  <Icon name="public" className="text-on-surface-variant" />
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between mb-1">
@@ -224,9 +125,7 @@ export default function ReasoningTraceDetailPage() {
               </div>
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded bg-white border border-outline-variant flex items-center justify-center">
-                  <span className="material-symbols-outlined text-on-surface-variant">
-                    history_edu
-                  </span>
+                  <Icon name="history_edu" className="text-on-surface-variant" />
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between mb-1">
@@ -285,38 +184,68 @@ export default function ReasoningTraceDetailPage() {
               href="/copy-trade?traceId=TRD-7724&marketId=MKT-9204"
               className="w-full bg-secondary text-primary-foreground font-headline-sm text-headline-sm py-4 rounded-xl flex items-center justify-center gap-3 hover:opacity-90 transition-opacity active:scale-[0.98] transform cursor-pointer"
             >
-              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
-                bolt
-              </span>
+              <Icon name="bolt" filled />
               Copy Trade (YES)
             </Link>
-            <p className="font-label-caps text-[10px] text-center text-on-surface-variant">
-              Protocol execution fee: 0.05%
-            </p>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* System Logs Footer (Terminal Style) */}
-      <div className="mt-6 bg-on-background text-[#6ffbbe] p-4 rounded-lg font-data-mono text-data-mono border border-outline overflow-hidden shadow-2xl">
-        <div className="flex gap-4 items-center mb-2 border-b border-[#005236] pb-2">
-          <span className="flex h-2 w-2 rounded-full bg-[#6ffbbe] animate-pulse"></span>
-          <span className="text-white font-bold">ORACLE_LOG_STREAM</span>
-          <span className="ml-auto text-on-secondary-fixed-variant opacity-50">
-            v2.0.4-LATEST
-          </span>
+      {isLoading && (
+        <div className="p-12 text-center bg-surface-container-low rounded-xl border border-outline-variant">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-3"></div>
+          <p className="text-on-surface-variant font-label-caps text-xs">Loading reasoning trace…</p>
         </div>
-        <div 
-          ref={logStreamRef}
-          className="space-y-1 opacity-80 h-24 overflow-y-auto custom-scrollbar"
-        >
-          {logs.map((log) => (
-            <div key={log.id}>
-              [{log.time}] <span className="text-white">{log.type}:</span> {log.message}
-            </div>
-          ))}
+      )}
+
+      {error && (
+        <div className="p-6 bg-error-container/10 border border-error/20 rounded-xl text-error mb-6">
+          <p className="font-semibold">Error loading trace</p>
+          <p className="text-sm mt-1">{error}</p>
         </div>
-      </div>
+      )}
+
+      {!isLoading && !error && (
+        <SafeTraceViewer
+          content={
+            verifiedContent ??
+            (trace
+              ? {
+                  version: 1,
+                  agent: trace.agentType,
+                  action: trace.decisionType,
+                  decisionType: trace.decisionType,
+                  probabilityEstimate: trace.probabilityEstimate,
+                  edge: trace.edge,
+                  confidenceInterval: trace.confidenceInterval,
+                  sources: trace.sourcesUsed ?? trace.previewSources ?? [],
+                  conditions: trace.hedgeConditions,
+                  betFraction: trace.betFraction,
+                  betSizeUsdc: trace.betSizeUsdc,
+                  timestamp: trace.createdAt,
+                  reasoning: trace.sourcesUsed?.[0]?.signal || "Decision generated by autonomous market maker.",
+                }
+              : {
+                  version: 1,
+                  agent: "MARKET_MAKER_v2",
+                  action: "BUY_YES",
+                  probabilityEstimate: 0.72,
+                  edge: 0.15,
+                  confidence: 0.92,
+                  reasoning: "Parsed corpus from FOMC minutes and macro market feeds. Consensus suggests elevated tail-risk for dovish policy shift.",
+                  sources: [
+                    { name: "FOMC Minutes", weight: 0.85, signal: "Labor market softening indicators noted." },
+                    { name: "CME FedWatch", weight: 0.62, signal: "Implied probability shifted 4.2% towards rate cut." },
+                  ],
+                  conditions: ["Dispute window: 24h", "Minimum liquidity depth: 10,000 USDC"],
+                })
+          }
+          verified={verificationStatus === "verified" || Boolean(trace?.verified)}
+          ipfsCid={trace?.ipfsCid}
+          traceHash={trace?.traceHash}
+          title={trace?.market?.question ?? "Reasoning Trace Analysis"}
+        />
+      )}
     </main>
   );
 }

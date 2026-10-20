@@ -14,6 +14,7 @@ import { WalletInterpreter } from "./wallet-interpreter";
 import { viewOf } from "./wallet-machine";
 import { TransactionTrackerProvider } from "./tx-tracker";
 import { storedPushWallet, unsubscribe as unsubscribePush } from "@/lib/notifications/push";
+import { LedgerInvalidator } from "./ledger-invalidation";
 
 export interface OpenModalOptions {
   /**
@@ -50,13 +51,108 @@ export interface WalletContextValue {
   selectedWalletId?: string | null;
 }
 
-/** Exported so tests and stories can supply a fake value without the wallet kit. */
-export const WalletContext = createContext<WalletContextValue | null>(null);
+/**
+ * The wallet context is split into slices so a component only re-renders when
+ * the part of the wallet it actually reads changes. Each slice is a separate
+ * React context with a memoized value; `useWallet()` stays as a compatibility
+ * facade over all of them.
+ */
+export interface WalletIdentityValue {
+  address: string | null;
+  isConnected: boolean;
+}
 
-export function useWallet(): WalletContextValue {
-  const ctx = useContext(WalletContext);
-  if (!ctx) throw new Error("useWallet must be used inside <WalletProvider>");
+export interface WalletNetworkValue {
+  walletNetworkPassphrase: string | null;
+  isWrongNetwork: boolean;
+}
+
+export interface WalletSessionValue {
+  isAuthenticated: boolean;
+  isConnecting: boolean;
+  error: string | null;
+}
+
+export interface WalletMetaValue {
+  /** Wallet module the user picked in the kit (e.g. "freighter"), for diagnostics. */
+  selectedWalletId: string | null;
+}
+
+export interface WalletActionsValue {
+  openModal: (opts?: OpenModalOptions) => Promise<boolean>;
+  ensureSession: () => Promise<boolean>;
+  withSession: <T>(fn: () => Promise<T>, why: string) => Promise<T>;
+  disconnect: () => Promise<void>;
+}
+
+const IdentityContext = createContext<WalletIdentityValue | null>(null);
+const NetworkContext = createContext<WalletNetworkValue | null>(null);
+const SessionContext = createContext<WalletSessionValue | null>(null);
+const SignerContext = createContext<Signer | null | undefined>(undefined);
+const ActionsContext = createContext<WalletActionsValue | null>(null);
+const MetaContext = createContext<WalletMetaValue | null>(null);
+
+const OUTSIDE_PROVIDER = "must be used inside <WalletProvider>";
+
+/** The connected account. Changes only when the account changes. */
+export function useWalletAddress(): WalletIdentityValue {
+  const ctx = useContext(IdentityContext);
+  if (!ctx) throw new Error(`useWalletAddress ${OUTSIDE_PROVIDER}`);
   return ctx;
+}
+
+/** The network the wallet reports, and whether it is the wrong one. */
+export function useWalletNetwork(): WalletNetworkValue {
+  const ctx = useContext(NetworkContext);
+  if (!ctx) throw new Error(`useWalletNetwork ${OUTSIDE_PROVIDER}`);
+  return ctx;
+}
+
+/** Sign-in state: whether a backend session exists, and the last error. */
+export function useWalletSession(): WalletSessionValue {
+  const ctx = useContext(SessionContext);
+  if (!ctx) throw new Error(`useWalletSession ${OUTSIDE_PROVIDER}`);
+  return ctx;
+}
+
+/** The signer for the connected account, or null when disconnected. */
+export function useWalletSigner(): Signer | null {
+  const ctx = useContext(SignerContext);
+  if (ctx === undefined) throw new Error(`useWalletSigner ${OUTSIDE_PROVIDER}`);
+  return ctx;
+}
+
+/** Connect, sign in and disconnect. These identities never change. */
+export function useWalletActions(): WalletActionsValue {
+  const ctx = useContext(ActionsContext);
+  if (!ctx) throw new Error(`useWalletActions ${OUTSIDE_PROVIDER}`);
+  return ctx;
+}
+
+/** Diagnostics about the wallet module in use. */
+export function useWalletMeta(): WalletMetaValue {
+  const ctx = useContext(MetaContext);
+  if (!ctx) throw new Error(`useWalletMeta ${OUTSIDE_PROVIDER}`);
+  return ctx;
+}
+
+/**
+ * Compatibility facade: the whole wallet value in one object.
+ *
+ * It re-renders on *any* wallet change, so hot components (the trade ticket,
+ * the wallet dropdown) should use the narrow hooks above instead.
+ */
+export function useWallet(): WalletContextValue {
+  const identity = useWalletAddress();
+  const network = useWalletNetwork();
+  const session = useWalletSession();
+  const signer = useWalletSigner();
+  const actions = useWalletActions();
+  const meta = useWalletMeta();
+  return useMemo(
+    () => ({ ...identity, ...network, ...session, signer, ...actions, ...meta }),
+    [identity, network, session, signer, actions, meta],
+  );
 }
 
 export interface WalletProviderProps {
@@ -136,6 +232,15 @@ export function WalletProvider({ children, kitLoader = loadStellarWalletsKit }: 
     if (stored && stored !== address && !view.isConnecting) void unsubscribePush().catch(() => {});
   }, [address, view.isConnecting]);
 
+  // Event-driven invalidation heartbeat
+  useEffect(() => {
+    const invalidator = new LedgerInvalidator({
+      queryClient,
+      getUserAddress: () => address,
+    });
+    return invalidator.start();
+  }, [queryClient, address]);
+
   const signer = useMemo<Signer | null>(() => {
     if (!address) return null;
     return {
@@ -147,16 +252,10 @@ export function WalletProvider({ children, kitLoader = loadStellarWalletsKit }: 
     };
   }, [address, interpreter]);
 
-  const value = useMemo<WalletContextValue>(
+  // The actions read the interpreter's *current* state when they are called, so
+  // their identities can stay stable for the lifetime of the provider.
+  const actions = useMemo<WalletActionsValue>(
     () => ({
-      address,
-      isConnected: view.isConnected,
-      isConnecting: view.isConnecting,
-      walletNetworkPassphrase: view.walletNetworkPassphrase,
-      isWrongNetwork: Boolean(view.walletNetworkPassphrase) && view.walletNetworkPassphrase !== NETWORK_PASSPHRASE,
-      signer,
-      isAuthenticated: view.isAuthenticated,
-      error: view.error,
       openModal: (opts) => interpreter.openModal(safeReturnTo(opts?.returnTo)),
       ensureSession: () => interpreter.ensureSession(),
       withSession: async (fn, why) => {
@@ -173,16 +272,47 @@ export function WalletProvider({ children, kitLoader = loadStellarWalletsKit }: 
         await unsubscribePush().catch(() => {});
         await interpreter.disconnect();
       },
-      selectedWalletId: address ? selectedWalletId : null,
     }),
-    [address, view, signer, interpreter, selectedWalletId],
+    [interpreter],
+  );
+
+  // One slice per concern. Each value only changes when its own fields do, so
+  // a component that reads one slice is not re-rendered by the others.
+  const identity = useMemo<WalletIdentityValue>(
+    () => ({ address: view.address, isConnected: view.isConnected }),
+    [view.address, view.isConnected],
+  );
+  const network = useMemo<WalletNetworkValue>(
+    () => ({
+      walletNetworkPassphrase: view.walletNetworkPassphrase,
+      isWrongNetwork: Boolean(view.walletNetworkPassphrase) && view.walletNetworkPassphrase !== NETWORK_PASSPHRASE,
+    }),
+    [view.walletNetworkPassphrase],
+  );
+  const session = useMemo<WalletSessionValue>(
+    () => ({ isAuthenticated: view.isAuthenticated, isConnecting: view.isConnecting, error: view.error }),
+    [view.isAuthenticated, view.isConnecting, view.error],
+  );
+  const meta = useMemo<WalletMetaValue>(
+    () => ({ selectedWalletId: address ? selectedWalletId : null }),
+    [address, selectedWalletId],
   );
 
   return (
     <QueryClientProvider client={queryClient}>
-      <WalletContext.Provider value={value}>
-        <TransactionTrackerProvider>{children}</TransactionTrackerProvider>
-      </WalletContext.Provider>
+      <ActionsContext.Provider value={actions}>
+        <IdentityContext.Provider value={identity}>
+          <NetworkContext.Provider value={network}>
+            <SessionContext.Provider value={session}>
+              <SignerContext.Provider value={signer}>
+                <MetaContext.Provider value={meta}>
+                  <TransactionTrackerProvider>{children}</TransactionTrackerProvider>
+                </MetaContext.Provider>
+              </SignerContext.Provider>
+            </SessionContext.Provider>
+          </NetworkContext.Provider>
+        </IdentityContext.Provider>
+      </ActionsContext.Provider>
     </QueryClientProvider>
   );
 }

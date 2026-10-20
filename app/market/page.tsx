@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { Suspense, useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
@@ -44,14 +45,14 @@ const MarketHeader = () => {
           href="/market/9204/trace-history"
           className="px-4 py-2 bg-surface-container border border-outline-variant text-on-surface rounded font-label-caps text-label-caps hover:bg-surface-container-high transition-colors flex items-center gap-2"
         >
-          <span className="material-symbols-outlined text-base">history</span>
+          <Icon name="history" className="text-base" />
           Trace History
         </Link>
         <Link
           href="/market/9204/trades"
           className="px-4 py-2 bg-surface-container border border-outline-variant text-on-surface rounded font-label-caps text-label-caps hover:bg-surface-container-high transition-colors flex items-center gap-2"
         >
-          <span className="material-symbols-outlined text-base">link</span>
+          <Icon name="link" className="text-base" />
           Trade Attribution
         </Link>
       </div>
@@ -232,7 +233,7 @@ const TradeExecution = () => {
             href="/copy-trade?marketId=MKT-9204"
             className="w-full bg-primary-container text-on-primary-container py-3 rounded-xl font-label-caps text-label-caps flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
           >
-            <span className="material-symbols-outlined text-[18px]">content_copy</span>
+            <Icon name="content_copy" className="text-[18px]" />
             COPY AI TRADE
           </Link>
         </div>
@@ -244,7 +245,7 @@ const TradeExecution = () => {
             <div className="p-6 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
               <h2 className="font-headline-sm text-headline-sm text-on-surface">Execution Terminal</h2>
               <button onClick={() => setIsTerminalOpen(false)} className="text-on-surface-variant hover:text-on-surface">
-                <span className="material-symbols-outlined">close</span>
+                <Icon name="close" />
               </button>
             </div>
             <div className="p-6 space-y-6">
@@ -270,7 +271,7 @@ const OracleInsights = () => {
   return (
     <div className="bg-[#f0f9fa] border border-primary/20 rounded-xl overflow-hidden">
       <div className="bg-primary/5 px-6 py-4 border-b border-primary/10 flex items-center gap-3">
-        <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+        <Icon name="psychology" filled className="text-primary" />
         <h3 className="font-headline-sm text-headline-sm text-primary">Oracle Insights</h3>
       </div>
       <div className="p-6 space-y-8 relative">

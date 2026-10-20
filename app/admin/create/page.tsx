@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -115,6 +116,95 @@ function AdminCreateContent() {
               not used by the backend yet, so this page sends none.
             </p>
           </div>
+          
+          <form className="space-y-6 bg-white p-8 rounded-xl border border-outline-variant shadow-sm">
+            {/* Market Question */}
+            <div className="space-y-2">
+              <label className="font-label-caps text-label-caps text-on-surface-variant flex items-center justify-between">
+                MARKET_QUESTION
+                <span className="text-[10px] opacity-50">REQUIRED</span>
+              </label>
+              <input
+                className="w-full bg-surface border border-outline-variant rounded p-3 focus:ring-2 focus:ring-primary focus:border-primary transition-all font-body-md text-body-md outline-none"
+                id="market_question"
+                placeholder="Will ETH exceed $5,000 by year end?"
+                type="text"
+                value={question}
+                onChange={handleQuestionChange}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Category */}
+              <div className="space-y-2">
+                <label className="font-label-caps text-label-caps text-on-surface-variant">CATEGORY</label>
+                <select
+                  className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-body-md outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+                  id="market_category"
+                  value={category}
+                  onChange={handleCategoryChange}
+                >
+                  {BACKEND_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {BACKEND_CATEGORY_LABELS[c]} (on-chain: {BACKEND_TO_CONTRACT_CATEGORY[c]})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Expiry */}
+              <div className="space-y-2">
+                <label className="font-label-caps text-label-caps text-on-surface-variant">EXPIRY_DATE</label>
+                <input
+                  className="w-full bg-surface border border-outline-variant rounded p-3 font-body-md text-body-md outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+                  id="market_expiry"
+                  type="date"
+                  value={expiry}
+                  onChange={handleExpiryChange}
+                />
+              </div>
+            </div>
+
+            {/* Initial Liquidity */}
+            <div className="space-y-2">
+              <label className="font-label-caps text-label-caps text-on-surface-variant flex justify-between">
+                INITIAL_LIQUIDITY (USDC)
+                <span className="text-secondary font-bold">Min: 100 USDC</span>
+              </label>
+              <div className="relative">
+                <input
+                  className="w-full bg-surface border border-outline-variant rounded p-3 pl-12 font-data-mono text-data-mono outline-none focus:ring-2 focus:ring-primary"
+                  id="market_liquidity"
+                  placeholder="1000.00"
+                  type="number"
+                  value={liquidity}
+                  onChange={handleLiquidityChange}
+                />
+                <Icon name="account_balance_wallet" className="absolute left-3 top-3 text-on-surface-variant" />
+              </div>
+            </div>
+
+            {/* AI Toggle */}
+            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded border border-outline-variant">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded bg-primary-container flex items-center justify-center text-on-primary-container">
+                  <Icon name="psychology" />
+                </div>
+                <div>
+                  <h3 className="font-headline-sm text-headline-sm">AI Oracle Reasoning</h3>
+                  <p className="text-[12px] text-on-surface-variant">Generate autonomous probability analysis reports.</p>
+                </div>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={aiEnabled}
+                  onChange={handleAiToggle}
+                />
+                <div className="w-11 h-6 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
 
           <div className="space-y-4 bg-white p-8 rounded-xl border border-outline-variant shadow-sm">
             <p className="text-sm text-on-surface-variant">
@@ -133,8 +223,8 @@ function AdminCreateContent() {
               onClick={handleStart}
               disabled={generateMarket.isPending}
             >
-              <span className="material-symbols-outlined" aria-hidden>rocket_launch</span>
-              {generateMarket.isPending ? "STARTING…" : "START MARKET-MAKER RUN"}
+              <Icon name="rocket_launch" />
+              {generateMarket.isPending ? "GENERATING..." : "DEPLOY INSTITUTIONAL MARKET"}
             </button>
             {startError && (
               <p role="alert" className="text-sm text-error">
@@ -163,18 +253,34 @@ function AdminCreateContent() {
             )}
           </section>
 
-          <section aria-label="Job events" className="bg-inverse-surface text-inverse-on-surface rounded-xl p-6 font-data-mono text-[12px] space-y-1">
-            <h2 className="font-label-caps text-label-caps opacity-70 mb-2">JOB EVENTS</h2>
-            {feed.length === 0 ? (
-              <p className="opacity-70">Events appear here once a run starts.</p>
-            ) : (
-              feed.map((event) => (
-                <p key={event.key} className={TONE_CLASS[event.tone]}>
-                  {event.text}
-                </p>
-              ))
-            )}
-          </section>
+              <div className="grid grid-cols-2 gap-4 border-t border-outline-variant pt-6">
+                <div className="space-y-1">
+                  <span className="font-label-caps text-label-caps text-on-surface-variant block">LIQUIDITY</span>
+                  <span className="font-data-mono text-data-mono text-on-surface">
+                    {liquidity ? `${parseFloat(liquidity).toLocaleString()} USDC` : "0.00 USDC"}
+                  </span>
+                </div>
+                <div className="space-y-1">
+                  <span className="font-label-caps text-label-caps text-on-surface-variant block">EXPIRES</span>
+                  <span className="font-data-mono text-data-mono text-on-surface">
+                    {expiry || "-- -- ----"}
+                  </span>
+                </div>
+              </div>
+
+              {/* AI Reasoning Ghost Card */}
+              <div 
+                className={`p-4 bg-[#f0f9fa] rounded border border-primary-container/20 space-y-2 transition-opacity duration-300 ${aiEnabled ? "opacity-100" : "opacity-0"}`}
+              >
+                <div className="flex items-center gap-2 text-primary">
+                  <Icon name="auto_awesome" className="text-[18px]" />
+                  <span className="font-label-caps text-label-caps">ORACLE INSIGHT ENABLED</span>
+                </div>
+                <div className="h-2 w-3/4 bg-primary-container/10 rounded"></div>
+                <div className="h-2 w-1/2 bg-primary-container/10 rounded"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </main>

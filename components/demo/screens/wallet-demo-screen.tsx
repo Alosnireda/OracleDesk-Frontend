@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useEffect, useState } from "react";
 import { WalletPanel } from "@/components/demo/wallet-panel";
@@ -28,9 +29,7 @@ export function WalletDemoScreen() {
           onClick={() => setIsOpen((open) => !open)}
           className="bg-primary text-on-primary px-4 py-2 rounded-lg font-label-caps text-label-caps flex items-center gap-2 shadow-sm"
         >
-          <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-            account_balance_wallet
-          </span>
+          <Icon name="account_balance_wallet" filled className="text-[18px]" />
           G…4f2a
         </button>
       </div>

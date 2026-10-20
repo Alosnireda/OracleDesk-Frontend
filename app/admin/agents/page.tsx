@@ -1,10 +1,11 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import { Address, StrKey } from "@stellar/stellar-sdk";
 import { RequireWallet } from "@/components/require-wallet";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletAddress } from "@/lib/contexts/WalletContext";
 import { useAgents, useRegisterAgent, useRegistryAdmin, useUnregisterAgent, simulateAgentAction, type AgentAction, type AgentRow, type AgentSource } from "@/lib/hooks/useAgents";
 import { CONTRACTS, explorerAccount, explorerTx, isAdminAddress } from "@/lib/stellar/config";
 import { describeError } from "@/lib/stellar/errors";
@@ -52,7 +53,7 @@ export default function AdminAgentsPage() {
 }
 
 function AdminAgentsContent() {
-  const { address } = useWallet();
+  const { address } = useWalletAddress();
   const agents = useAgents();
   const registryAdmin = useRegistryAdmin();
   const register = useRegisterAgent();
@@ -149,7 +150,7 @@ function AdminAgentsContent() {
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-on-surface-variant">
             <Link href="/admin" className="hover:text-primary">Admin</Link>
-            <span className="material-symbols-outlined text-sm">chevron_right</span>
+            <Icon name="chevron_right" className="text-sm" />
             <span>Agents</span>
           </div>
           <h1 className="font-display-lg text-display-lg text-primary text-4xl">Reasoning agents</h1>

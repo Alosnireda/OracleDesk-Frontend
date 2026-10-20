@@ -133,7 +133,7 @@ describe("raceGateways", () => {
   });
 
   it("reports a single failing gateway with its specific reason", async () => {
-    const { check } = await fetchAndVerifyTraceWith(CID, hash, {
+    const check = await fetchAndVerifyTraceWith(CID, hash, {
       gateways: [GW1],
       fetchImpl: gateways({ [GW1]: async () => new Response("", { status: 504 }) }),
     });

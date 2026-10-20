@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import { useEffect, useRef, useState } from "react";
 import type { ReviewModel } from "@/lib/stellar/tx-decode";
@@ -117,7 +118,7 @@ export function TxReview({ model, changedFrom, confirming = false, onConfirm, on
             </h2>
           </div>
           <button type="button" aria-label="Cancel transaction review" onClick={onCancel} className="p-2 text-outline hover:text-error">
-            <span aria-hidden="true" className="material-symbols-outlined">close</span>
+            <Icon name="close" aria-hidden="true" />
           </button>
         </header>
 

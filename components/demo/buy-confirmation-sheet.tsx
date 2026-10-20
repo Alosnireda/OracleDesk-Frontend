@@ -1,4 +1,5 @@
 "use client";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 import React from "react";
 
@@ -34,7 +35,7 @@ export interface BuyConfirmationSheetProps {
   /** Grid of computed rows (shares, fees, payout…). */
   details: BuySheetDetailRow[];
   /** Optional side note above the action button. */
-  insight?: { icon: string; text: React.ReactNode };
+  insight?: { icon: IconName; text: React.ReactNode };
   action: { label: React.ReactNode; tone: "yes" | "no"; onAction: () => void; disabled?: boolean };
   footnote?: string;
   onClose?: () => void;
@@ -71,7 +72,7 @@ export function BuyConfirmationSheet({
         </div>
         {onClose && (
           <button onClick={onClose} aria-label="Close" className="text-on-surface-variant hover:text-on-surface transition-colors p-2">
-            <span className="material-symbols-outlined">close</span>
+            <Icon name="close" />
           </button>
         )}
       </div>
@@ -134,12 +135,11 @@ export function BuyConfirmationSheet({
 
         {insight && (
           <div className={`${action.tone === "yes" ? "bg-secondary/5 border-secondary/10" : "bg-tertiary/5 border-tertiary/10"} border rounded-lg p-3 flex gap-3`}>
-            <span
-              className={`${action.tone === "yes" ? "text-secondary" : "text-tertiary"} material-symbols-outlined text-lg flex-shrink-0`}
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              {insight.icon}
-            </span>
+            <Icon
+              name={insight.icon}
+              filled
+              className={`${action.tone === "yes" ? "text-secondary" : "text-tertiary"} text-lg shrink-0`}
+            />
             <p className="font-body-md text-[12px] sm:text-[13px] text-on-surface-variant leading-tight">{insight.text}</p>
           </div>
         )}
