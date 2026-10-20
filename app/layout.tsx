@@ -10,6 +10,7 @@ import { InboxProvider } from "@/lib/notifications/InboxProvider";
 import { PwaRegistrar } from "@/components/pwa/pwa-registrar";
 import { DebugMount } from "@/components/debug/debug-mount";
 import { RpcDegradedBanner } from "@/components/debug/RpcPanel";
+import { X402RecoveryBanner } from "@/components/trace/x402-recovery-banner";
 
 const geistSans = {
   variable: "--font-geist-sans",
@@ -61,6 +62,7 @@ export default function RootLayout({
               <InboxProvider>
                 <Navbar />
                 <RpcDegradedBanner />
+                <X402RecoveryBanner />
                 {children}
                 <Footer />
                 <DebugMount />

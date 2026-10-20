@@ -1,0 +1,11 @@
+{
+  "//": "Typechecks the x402 contract harness, which imports the contracts submodule's .ts sources (and their deps from contracts/oracledesk-stellar/x402/node_modules). Kept out of the app's tsconfig. Run: npx tsc -p e2e/x402",
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": true,
+    "incremental": false,
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts", "../../next-env.d.ts"],
+  "exclude": []
+}

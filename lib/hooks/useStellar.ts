@@ -13,7 +13,7 @@ import { useUpdatePending } from "@/lib/pwa/update-context";
 import { describeError, describeSubmission, UserFacingError, type ContractName } from "@/lib/stellar/errors";
 import { BPS, priceYesBps } from "@/lib/stellar/generated/fpmm";
 import type { Config, Market as OnChainMarket, Position } from "@/lib/stellar/generated/market-core";
-import { verifyTraceInWorker, type TraceCheck } from "@/lib/stellar/trace";
+import { fetchVerifiedTrace, type VerifiedTrace } from "@/lib/stellar/verified-trace";
 import { read, submit, bytesToHex, simulatedWithLedger, simulated } from "@/lib/stellar/typed-call";
 import { maxIn, minOut } from "@/lib/stellar/units";
 import {
@@ -650,36 +650,14 @@ export function usePrepareUsdcTransfer(params: {
   });
 }
 
-export interface VerifiedTrace {
-  onChainTraceId: string;
-  marketId: string;
-  agent: string;
-  action: string;
-  ipfsCid: string;
-  onChainHash: string;
-  publishedAt: number;
-  check: TraceCheck;
-}
+export type { VerifiedTrace };
 
 /** Reads the trace from reasoning-registry, then fetches and hash-checks its content. */
 export function useVerifiedTrace(onChainTraceId: bigint | string | null | undefined) {
   return useQuery({
     queryKey: stellarKeys.trace(String(onChainTraceId)),
     enabled: onChainTraceId !== null && onChainTraceId !== undefined && onChainTraceId !== "",
-    queryFn: async ({ signal }): Promise<VerifiedTrace> => {
-      const trace = read(await reasoningRegistry().get_trace({ trace_id: toId(onChainTraceId as string) }), "reasoningRegistry");
-      const onChainHash = bytesToHex(trace.trace_hash);
-      return {
-        onChainTraceId: String(onChainTraceId),
-        marketId: trace.market_id.toString(),
-        agent: trace.agent,
-        action: trace.action,
-        ipfsCid: trace.ipfs_cid,
-        onChainHash,
-        publishedAt: Number(trace.published_at),
-        check: await verifyTraceInWorker(trace.ipfs_cid, onChainHash, { signal }),
-      };
-    },
+    queryFn: ({ signal }) => fetchVerifiedTrace(onChainTraceId as string, signal),
     staleTime: 5 * 60_000,
   });
 }

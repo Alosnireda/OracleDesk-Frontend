@@ -65,3 +65,35 @@ reachable from raw storage today: how much of `max_market` a market has used
 treasury is paused. Read-only getters `market_exposure(market_id) ->
 MarketExposure` and `paused() -> bool` would let the frontend show both
 without reading storage keys that the contract may change.
+
+## 7. x402 trace service: safe redelivery, CORS and an explicit asset
+
+The frontend journals every signed x402 payment and redelivers the same
+`PAYMENT-SIGNATURE` header after a failure (`lib/x402/recovery.ts`,
+`docs/architecture.md`). Checked against `x402/trace-api.ts` and the pinned
+`@x402/express` 2.26.0 (`e2e/x402` pins this behaviour):
+
+- **Keep settling only after the trace is loaded and verified.** The Stellar
+  `exact` scheme's default `authorization` flow already verifies before the
+  handler and settles only when it answered below 400, so a 502 (gateway down,
+  hash mismatch) or 404 charges nothing. Please keep that explicit (don't set
+  `extra.paymentFlow: "upfront"`) so an upgrade can't start charging for 502s.
+- **Accept a settled payment's header as proof of entitlement for a short
+  window** (or cache delivery by payment id). Today a replayed header after
+  settlement is re-verified, the consumed nonce fails, and the client gets a
+  402: a buyer whose response was lost after `/settle` (disconnect, reload)
+  has paid and cannot get the trace without paying again. Caching
+  `{ payer, nonce } → traceId` for e.g. 24 hours and serving the trace for a
+  matching header would let the client redeliver.
+- **Send CORS headers.** The browser calls the service cross-origin with a
+  custom request header, so it needs a preflight answer allowing
+  `PAYMENT-SIGNATURE` and `Accept`, and `Access-Control-Expose-Headers:
+  PAYMENT-REQUIRED, PAYMENT-RESPONSE` on responses. Without them the browser
+  can't read the 402 requirements or the settlement hash, and in-app unlocks
+  only work behind a same-origin proxy.
+- **Price in an explicit asset.** `price: "0.01"` resolves to
+  `@x402/stellar`'s default asset, Circle's testnet USDC SAC
+  (`CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA`), not the
+  self-issued USDC in `deployments/testnet.json` that the markets use. Passing an
+  `AssetAmount` (`{ amount, asset }`) would make the charged asset a
+  deliberate choice, and testers would need only one test USDC.

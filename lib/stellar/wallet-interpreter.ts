@@ -126,6 +126,13 @@ export class WalletInterpreter {
   signTransaction = async (xdr: string, opts: { networkPassphrase: string; address: string }) =>
     (await this.kit()).signTransaction(xdr, opts);
 
+  /** Signs a Soroban auth entry with the connected kit; rejects when the kit can't. */
+  signAuthEntry = async (authEntry: string, opts: { networkPassphrase: string; address: string }) => {
+    const kit = await this.kit();
+    if (!kit.signAuthEntry) throw new Error("This wallet can't sign Soroban authorization entries.");
+    return kit.signAuthEntry(authEntry, opts);
+  };
+
   private kit(): Promise<WalletKitAdapter> {
     this.kitPromise ??= this.deps.loadKit();
     return this.kitPromise;

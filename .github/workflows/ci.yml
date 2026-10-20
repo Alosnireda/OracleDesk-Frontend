@@ -31,3 +31,33 @@ jobs:
 
       - name: No production links to retired demo routes
         run: node scripts/check-demo-links.mjs
+
+  x402-contract:
+    name: x402 contract tests (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            contracts/oracledesk-stellar/x402/package-lock.json
+
+      - run: npm ci
+
+      # The real trace service runs from the pinned submodule with its own dependencies.
+      - run: npm ci --ignore-scripts --prefix contracts/oracledesk-stellar/x402
+
+      - name: Frontend and contracts service pin the same @x402/* versions
+        run: npm run check:x402
+
+      - name: Typecheck the harness
+        run: npx tsc -p e2e/x402 --noEmit
+
+      - run: npm run e2e:x402

@@ -89,6 +89,36 @@ Never edit `lib/stellar/generated/` by hand. If you think a contract needs
 to change, write it up in [docs/contract-requests.md](docs/contract-requests.md)
 and open the issue in the contracts repo.
 
+### x402 contract tests
+
+`e2e/x402/` runs the frontend's x402 client (`lib/x402/client.ts`) against the
+real trace service from the submodule (`x402/trace-api.ts`), fully offline: a
+stub facilitator (`e2e/x402/stub-facilitator.ts`) checks the signed payment,
+a fake gateway serves the fixtures in `e2e/x402/fixtures/traces/`, the Soroban
+RPC is answered in-process, and any connection to a non-loopback host fails.
+CI runs it as the `x402-contract` job.
+
+```bash
+npm ci --ignore-scripts --prefix contracts/oracledesk-stellar/x402   # the service's own dependencies
+npm run check:x402       # frontend and service resolve the same @x402/* versions
+npx tsc -p e2e/x402      # typecheck the harness (kept out of the app's tsconfig)
+npm run e2e:x402
+```
+
+When the submodule moves:
+
+1. Run `npm ci --ignore-scripts --prefix contracts/oracledesk-stellar/x402`, then `npm run check:x402`. If the service now resolves
+   different `@x402/*` versions, pin the frontend to exactly those
+   (`npm install --save-exact @x402/core@<v> @x402/stellar@<v>`) and read
+   the release notes for header, payload or settlement-flow changes.
+2. Run `npm run e2e:x402`. "contracts/x402 API changed: update
+   e2e/x402/harness.ts and the frontend client" means `createTraceApi` or
+   `MapTraceRepository` moved or changed shape: adapt `e2e/x402/harness.ts`,
+   then `lib/x402/client.ts` if the wire format changed.
+3. If the service's trace format changes, regenerate the fixture with the
+   submodule's `agents/core/trace.ts` `buildTrace` (canonical JSON) and update
+   `FIXTURE_TRACE_HASH` in `e2e/x402/harness.ts` to its sha256.
+
 ## Working on a Drips Wave issue
 
 This repo takes part in [Drips Wave](https://docs.drips.network/wave/).

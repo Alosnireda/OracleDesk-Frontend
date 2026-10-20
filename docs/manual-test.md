@@ -223,3 +223,31 @@ Needs a backend implementing the contract in the PR description.
 
 - Set `NEXT_PUBLIC_STELLAR_RPC_URLS=https://invalid.example,https://soroban-testnet.stellar.org`, open `?debug=rpc`; block one host in DevTools and watch failover. A buy during the switch uses one host.
 - `?debug=1` or Ctrl/Cmd+Shift+D opens the debug panel; "Copy diagnostics" previews redacted JSON.
+
+## Market generation tracking (#78)
+
+Needs a local backend with your wallet in `ADMIN_ADDRESSES` (and in `NEXT_PUBLIC_ADMIN_ADDRESSES`).
+- /admin/create shows the explanation and a single **Start market-maker run** button: no question, category, expiry, liquidity or AI fields, no remote image. Double-clicking starts one run (one job row; DevTools → Network shows one `POST /markets/generate` with an `Idempotency-Key` and body `{}`).
+- The row shows **Running** with a live elapsed time; the job events feed shows "Job … started …" and "Still running (…)". Requests to `/markets/generation-status/:jobId` go out every 5 s, every 15 s after two minutes.
+- Reload mid-run: the row and its elapsed time come back from `localStorage` (`oracledesk_admin_jobs:stellar:testnet:<address>`), and polling resumes.
+- On completion: **Completed**, the market question, **Open market** → `/markets/quick-view?marketId=…`, and the on-chain id. Polling stops. /admin's **Recent generation runs** lists it.
+- With `CHAIN_MODE=dry-run` on the backend: the row says "Created in the database only. The backend is in dry-run mode or on-chain creation failed; check backend logs."
+- Restart the backend while a job runs: the row becomes **Unknown** with the backend's message and a **Check recent markets** link; polling stops.
+- A job id the backend never saw (or pruned after an hour on a long-running server): **Not tracked**, polling stops.
+- Clear the JWT (`localStorage.removeItem("oracledesk_token")`) mid-run: the row says "Sign in again to keep tracking"; **Sign in** resumes polling.
+- Start six runs within an hour: the counter reaches "5 of 5" and the sixth gets "The backend allows 5 runs per hour. Try again in …" with no new row.
+- Open /admin/create in a second tab: a run started in one tab appears in the other. Switch to another admin wallet: only that wallet's runs show.
+
+## x402 unlocks: recovery (#75) and cart (#76)
+
+Needs a local x402 service (`contracts/oracledesk-stellar/x402`, `npm start`) behind the same origin or with CORS (see `docs/contract-requests.md` item 7), `NEXT_PUBLIC_X402_URL` pointing at it, a facilitator, a wallet with Soroban auth-entry signing (Freighter), and testnet USDC of the asset in the 402 (Circle testnet USDC by default).
+- `/reasoning/detail?onChainTraceId=<id>` shows **Unlock for 0.01 USDC**. Unlock: one wallet prompt, then "Unlocked. The content matches the on-chain trace hash." DevTools → Application → IndexedDB → `oracledesk-x402` → `payments` holds the entry (`delivered`), with no trace content.
+- Kill the service after the facilitator settles, then reload: the app-wide banner says a payment is waiting; the panel says "Your payment is saved…" with **Retry delivery**, never a new **Unlock for** button and never a new wallet prompt.
+- Restart the service and **Retry delivery**: delivered without signing again (Network: the same `PAYMENT-SIGNATURE` value).
+- Make the gateway serve other bytes for the CID: 502, nothing charged, the payment stays retryable.
+- Leave a rejected payment until its "Valid until ledger" passes: the panel offers **Pay again (previous payment expired unpaid)**.
+- Private window with storage blocked: the panel refuses to sign and says why.
+- Two tabs on the same trace, click both: only one wallet prompt at a time.
+- /reasoning: **Add to unlock list** on three locked traces, open **Unlock list (3)**: each row gets its price from the 402. Start checkout: three prompts, one after another. Raise `TRACE_PRICE_USDC` mid-run: the run pauses with accept / accept for all / skip. Kill the service on the second item: the receipt marks it failed and flags it; reopening that trace retries delivery without paying. **Download receipt (JSON)** totals equal the sum of paid amounts.
+- With a total at or above the daily-pass price, the drawer recommends a daily pass and links to /premium.
+- `NEXT_PUBLIC_X402_URL` empty: no cart, no unlock list buttons, no panel, no banner.

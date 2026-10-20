@@ -1,7 +1,20 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { Suspense, useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { X402UnlockPanel } from "@/components/trace/x402-unlock-panel";
+
+/** The x402 unlock panel for `?onChainTraceId=` (reasoning-registry id); nothing without it. */
+function TraceUnlock() {
+  const onChainTraceId = useSearchParams().get("onChainTraceId");
+  if (!onChainTraceId || !/^\d+$/.test(onChainTraceId)) return null;
+  return (
+    <div className="mb-6">
+      <X402UnlockPanel onChainTraceId={onChainTraceId} />
+    </div>
+  );
+}
 
 export default function ReasoningTraceDetailPage() {
   const [logs, setLogs] = useState([
@@ -48,6 +61,9 @@ export default function ReasoningTraceDetailPage() {
 
   return (
     <main className="pt-24 pb-12 px-gutter max-w-container-max-width mx-auto flex-1 flex flex-col">
+      <Suspense fallback={null}>
+        <TraceUnlock />
+      </Suspense>
       {/* Modal Wrapper (Simulated as Full Page Component) */}
       <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col md:flex-row h-[calc(100vh-240px)] min-h-[600px]">
         {/* Left Panel: Reasoning Trace */}

@@ -211,6 +211,8 @@ export interface ReadContractEventsOptions {
   /** Full topic filter; overrides topic0/topicCount (use the binding's
    * spec.eventTopicFilter to stay pinned to the contract). */
   topics?: string[];
+  /** Several topic filters, matched if any matches (RPC allows up to 5). Overrides `topics`. */
+  topicFilters?: string[][];
   startLedger?: number;
   /** Exclusive, like RPC's endLedger. Defaults to latestLedger + 1. */
   endLedger?: number;
@@ -267,7 +269,7 @@ export async function fetchContractEvents(options: ReadContractEventsOptions): P
   const filters: rpc.Api.EventFilter[] = [{
     type: "contract",
     contractIds: [options.contractId],
-    topics: [eventTopics(options)],
+    topics: options.topicFilters?.length ? options.topicFilters : [eventTopics(options)],
   }];
 
   const events: RawContractEvent[] = [];

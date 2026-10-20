@@ -142,6 +142,8 @@ export function WalletProvider({ children, kitLoader = loadStellarWalletsKit }: 
       publicKey: address,
       signTransaction: (xdr, opts) =>
         interpreter.signTransaction(xdr, { networkPassphrase: opts?.networkPassphrase ?? NETWORK_PASSPHRASE, address }),
+      signAuthEntry: (authEntry, opts) =>
+        interpreter.signAuthEntry(authEntry, { networkPassphrase: opts?.networkPassphrase ?? NETWORK_PASSPHRASE, address }),
     };
   }, [address, interpreter]);
 

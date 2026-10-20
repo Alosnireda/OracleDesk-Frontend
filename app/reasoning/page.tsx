@@ -1,17 +1,31 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { useInfiniteTraces } from "@/lib/hooks/useTraces";
 import { mergeTracePages } from "@/lib/hooks/trace-feed";
-import type { ReasoningTrace } from "@/lib/api/traces";
+import { getTrace, type ReasoningTrace } from "@/lib/api/traces";
+import { useWallet } from "@/lib/contexts/WalletContext";
+import { X402_ENABLED, useUnlockCart } from "@/lib/hooks/useX402";
+import { UnlockCart } from "@/components/trace/unlock-cart";
+import { parseUsdc } from "@/lib/stellar/units";
+
+/** Fallback daily-pass price when no trace quoted one (same rule as /premium). */
+const DAILY_PASS_PRICE_RAW = parseUsdc(process.env.NEXT_PUBLIC_DAILY_PASS_PRICE_USDC || "0.5");
+
+interface CartControl {
+  inCart: boolean;
+  note?: string;
+  onToggle: () => void;
+}
 
 interface ReasoningCardProps {
   trace: ReasoningTrace;
+  cart?: CartControl;
 }
 
-const ReasoningCard = ({ trace }: ReasoningCardProps) => {
+const ReasoningCard = ({ trace, cart }: ReasoningCardProps) => {
   const { id, marketId, verified, decisionType, edge, probabilityEstimate, previewSources } = trace;
   const yesProb = Math.round(probabilityEstimate * 100);
   const sources = previewSources ?? [];
@@ -114,10 +128,26 @@ const ReasoningCard = ({ trace }: ReasoningCardProps) => {
             View Agent Profile
           </Link>
         </div>
-        <Link href={`/premium/trace?traceId=${id}`} className="flex items-center gap-2 text-primary font-bold font-label-caps text-label-caps border border-primary px-4 py-2 rounded hover:bg-primary-fixed-dim/10">
-          <span className="material-symbols-outlined">lock_open</span>
-          Unlock Premium Trace
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {cart && (
+            <button
+              type="button"
+              onClick={cart.onToggle}
+              aria-pressed={cart.inCart}
+              className="flex items-center gap-2 font-label-caps text-label-caps border border-outline px-4 py-2 rounded hover:bg-surface-variant"
+            >
+              <span className="material-symbols-outlined" aria-hidden>
+                {cart.inCart ? "remove_shopping_cart" : "add_shopping_cart"}
+              </span>
+              {cart.inCart ? "In unlock list" : "Add to unlock list"}
+            </button>
+          )}
+          <Link href={`/premium/trace?traceId=${id}`} className="flex items-center gap-2 text-primary font-bold font-label-caps text-label-caps border border-primary px-4 py-2 rounded hover:bg-primary-fixed-dim/10">
+            <span className="material-symbols-outlined">lock_open</span>
+            Unlock Premium Trace
+          </Link>
+        </div>
+        {cart?.note && <p className="w-full text-[12px] text-on-surface-variant text-right">{cart.note}</p>}
       </div>
     </div>
   );
@@ -134,6 +164,40 @@ export default function ReasoningFeedPage() {
   } = useInfiniteTraces();
   const traces = useMemo(() => mergeTracePages(data?.pages.map((page) => page.traces) ?? []), [data]);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const { address } = useWallet();
+  const cart = useUnlockCart(address);
+  const [cartNotes, setCartNotes] = useState<Record<string, string>>({});
+  const quotedPassRaw = traces.find((t) => /^\d+$/.test(t.dailyPassPriceRaw ?? ""))?.dailyPassPriceRaw;
+  const dailyPassPriceRaw = quotedPassRaw ? BigInt(quotedPassRaw) : DAILY_PASS_PRICE_RAW;
+
+  /** Adds or removes a locked trace; fetches the full trace when the list row lacks access fields. */
+  const toggleCart = async (trace: ReasoningTrace) => {
+    const inCart = trace.onChainTraceId ? cart.items.some((item) => item.onChainTraceId === trace.onChainTraceId) : false;
+    if (inCart) {
+      cart.remove(trace.onChainTraceId as string);
+      return;
+    }
+    let full = trace;
+    if (!trace.accessLevel || trace.onChainTraceId === undefined) {
+      try {
+        full = await getTrace(trace.id);
+      } catch {
+        setCartNotes((notes) => ({ ...notes, [trace.id]: "Couldn't load this trace's access details." }));
+        return;
+      }
+    }
+    const note = full.accessLevel && full.accessLevel !== "FREE_PREVIEW" ? "Already unlocked for you." : cart.add(full);
+    setCartNotes((notes) => ({ ...notes, [trace.id]: note ?? "" }));
+  };
+
+  const cartControl = (trace: ReasoningTrace): CartControl | undefined => {
+    if (!X402_ENABLED || (trace.accessLevel && trace.accessLevel !== "FREE_PREVIEW")) return undefined;
+    return {
+      inCart: Boolean(trace.onChainTraceId && cart.items.some((item) => item.onChainTraceId === trace.onChainTraceId)),
+      note: cartNotes[trace.id] || undefined,
+      onToggle: () => void toggleCart(trace),
+    };
+  };
 
   useEffect(() => {
     const node = sentinelRef.current;
@@ -181,7 +245,7 @@ export default function ReasoningFeedPage() {
         ) : traces.length > 0 ? (
           <>
             {traces.map((t) => (
-              <ReasoningCard key={t.id} trace={t} />
+              <ReasoningCard key={t.id} trace={t} cart={cartControl(t)} />
             ))}
             <div ref={sentinelRef} aria-hidden className="h-px" />
             {isFetchingNextPage ? (
@@ -203,6 +267,7 @@ export default function ReasoningFeedPage() {
           </div>
         )}
       </div>
+      <UnlockCart cart={cart} dailyPassPriceRaw={dailyPassPriceRaw} />
     </main>
   );
 }

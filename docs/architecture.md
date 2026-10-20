@@ -44,6 +44,10 @@ A backend market links to the chain through `onChainMarketId` (market-core's `u6
 
 `/admin` shows live diagnostics instead of demo data: backend and chain market counts, sampled status/probability comparisons, RPC latency, and the indexer's last ledger. The sampler reads the newest ten markets plus a rotating sample from the rest, uses the same batched ledger reader as the market list when possible, limits itself to three in-flight reads and a ten-reads-per-second token bucket, and links each mismatch to the affected market. `/admin/agents` merges registry events, `deployments.testnet.json` and `NEXT_PUBLIC_KNOWN_AGENTS`, reads live `is_registered` for each address, and offers register/unregister review with a typed confirmation. Neither page fabricates a healthy state.
 
+### Market generation jobs
+
+`/admin/create` starts one market-maker run with `POST /markets/generate` and an `Idempotency-Key` per click (the backend requires one; a retried request can't start a second paid run). It sends `{}`: the agent picks the question, category and close time itself. Started job ids are stored per admin address and network in `localStorage` (`oracledesk_admin_jobs:<network>:<address>`, newest first, at most 50; `lib/admin/job-store.ts`) and shared across components and tabs through `useSyncExternalStore` and the `storage` event, so each tab polls each job with one query. `useMarketGenerationStatus` polls `GET /markets/generation-status/:jobId` every 5 s, 15 s once the server's `elapsedMs` passes two minutes, and stops on `COMPLETED`, `FAILED`, `UNKNOWN` (the backend restarted; only its start log survived) or `404 JOB_NOT_FOUND` (pruned an hour after finishing), which maps to `NOT_FOUND`. Auth errors are not retried; polling pauses with "Sign in again to keep tracking". Elapsed time is the server's `elapsedMs` plus only the local time since that answer. The job feed is derived from these states (`lib/admin/job-events.ts`); a `COMPLETED` job with `onChainMarketId: null` is explained as dry-run or failed on-chain creation. "Open market" links to `/markets/quick-view?marketId=…`, never `marketUrl`, which is an API path. The "runs in the last hour" count covers this browser only; the backend's limit is 5 per hour per IP, and a 429 shows its `Retry-After`.
+
 ### Confirmed wallet updates and reconciliation
 
 Position and USDC balance caches hold `{ value, ledger, provisional?, awaitingRpc? }`; existing hooks select `value`, while `usePositionState` and `useUsdcBalanceState` expose the metadata. Simulations supply the read ledger. A confirmed buy/sell/redeem applies only contract-returned bigint amounts, using the confirmed transaction ledger, and immediately updates an existing cache. Cached values already read at or above that ledger are left alone. Missing caches and unknown transaction ledgers use invalidation instead.
@@ -136,6 +140,43 @@ The on-chain `trace_hash` decides whether content is shown. Everything else is e
 - **CID check.** `lib/stellar/cid.ts` checks CIDv1 raw-codec sha2-256 CIDs against the bytes. It reports `match`, `mismatch`, `unsupported` (for example dag-pb, used for multi-block files) or `invalid`. The check is informational and never overrides the on-chain hash. A CID mismatch with a verified hash means the publish is inconsistent. A CID mismatch with a hash mismatch means the gateway served the wrong object.
 - **Worker.** `lib/stellar/trace.worker.ts` runs the race, the incremental SHA-256 (`lib/stellar/sha256.ts`) and the JSON decode off the main thread, and posts progress. Only verified bytes are transferred back, as a transferable `ArrayBuffer`. Mismatches carry no bytes. `verifyTraceInWorker` falls back to the main thread when workers are unavailable, and does so for the rest of the session if the worker fails at runtime.
 - **CSP.** The worker is a same-origin module (`new Worker(new URL("./trace.worker.ts", import.meta.url), { type: "module" })`). A strict CSP needs `worker-src 'self'` and must not allow `blob:`. Gateway subdomain redirects (for example `dweb.link`) need `connect-src` entries too.
+
+## x402 per-trace unlocks
+
+`lib/x402/client.ts` talks to the contracts repo's trace service (`GET {NEXT_PUBLIC_X402_URL}/traces/:onChainTraceId`) with the same `@x402/*` release the service pins (2.26.0, exact; `npm run check:x402`). Protocol v2 over HTTP: the 402 carries `PAYMENT-REQUIRED` (base64 JSON `PaymentRequired`), the paid retry sends `PAYMENT-SIGNATURE` (base64 JSON `PaymentPayload`), and a settled 200 carries `PAYMENT-RESPONSE` (base64 JSON `SettleResponse`). The Stellar `exact` payment is a Soroban authorization entry for one SEP-41 `transfer(payer, payTo, amount)`, signed by the wallet with `signAuthEntry` (SEP-43); the facilitator builds, sponsors and submits the transaction. Every request sends `Accept: application/json`, because the middleware answers browsers that accept `text/html` with an HTML paywall.
+
+Facts of the pinned client worth knowing:
+
+- The wallet must support Soroban auth-entry signing (Freighter does). The adapter exposes the kit's `signAuthEntry`; signing refuses with a plain message when the wallet can't.
+- A bare price (the service's `TRACE_PRICE_USDC`, "0.01") is charged in `@x402/stellar`'s default asset: Circle's testnet USDC SAC `CBIELTK6…DAMA`, not the app's self-issued USDC. Amounts are always read from the 402.
+- Building the payment simulates the transfer on the app's Soroban RPC; the scheme passes no `allowHttp`, so that RPC must be https. It also asks Horizon (testnet: `horizon-testnet.stellar.org`) for recent ledger times and falls back to 5 s per ledger. The signature expires at `latest ledger + ceil(maxTimeoutSeconds / ledger seconds)`; `maxTimeoutSeconds` defaults to 300.
+
+### Payment journal and recovery (`lib/x402/recovery.ts`)
+
+Every signed payment is written to IndexedDB (`oracledesk-x402`, store `payments`, indexed by `[wallet, network, onChainTraceId]`) with `durability: "strict"`, and the write must commit before the paid request is sent. If IndexedDB is unavailable, the app refuses to sign. `unlockTrace` checks the journal first:
+
+- an entry in `signed`, `sent` or `failed-retryable` is **redelivered with the same header**, never re-signed, until its expiration ledger (compared with RPC `getLatestLedger`, not the clock);
+- network errors and 5xx keep the header and retry after 1 s, 3 s and 10 s;
+- a 402 to a paid request, or an entry past its expiration ledger, triggers a settlement check before anything else happens. Settled payments become `settled-undelivered` and are never paid again; the user gets "Retry delivery" and "Copy payment evidence". Unsettled ones only become `expired`, and safe to pay again, once the expiration ledger has passed;
+- a 200 whose `traceHash` differs from reasoning-registry's is a delivery failure (`settled-undelivered`, `hash-mismatch`). Otherwise the entry becomes `delivered`, and content is shown only after the IPFS bytes verify against the on-chain hash (`fetchVerifiedTrace`).
+
+The settlement check reads SEP-41 `transfer` events from the wallet to `payTo` on the requirement's asset, in the ledgers where the signature was valid. An event of the right amount counts only if its transaction carries this payment's auth entry (same payer and nonce), so same-priced payments in one batch are never confused. If events are missing for the window (RPC retention), the result is `unknown` and the payment stays retryable. Tabs coordinate through a Web Lock per wallet, network and trace, and a `BroadcastChannel("oracledesk-x402")` that refreshes other tabs' views. The payment header is a bearer credential until it settles or expires. It is never logged, never put into error text, and never part of the support evidence.
+
+**What the pinned `@x402/express` 2.26 does** (read from its source and pinned by `e2e/x402`):
+
+- (a) *Same header replayed after settlement*: there is no delivery cache. Every paid request is verified with the facilitator again, and an auth entry whose nonce was consumed fails verification, so the replay gets a 402, not content. It can't be charged twice either. A settled-but-undelivered payment can't be redelivered against this service (contract request 7).
+- (b) *Handler error after payment*: the Stellar `exact` scheme's default flow is `authorization`, which runs verify before the handler and settle after it, and only when the handler answered below 400. The handler's output is buffered meanwhile. A 502 (gateway down, tampered bytes) or 404 (unknown trace) cancels the payment and nothing is settled, so the same header can be resent until it expires. The middleware also prices the route before the handler looks the trace up, so an unknown id still answers 402 first.
+- (c) *Client disconnect mid-response*: settlement runs after the handler regardless of the client. A disconnect after `/settle` leaves the payment settled and the response lost; the journal recovers this as `settled-undelivered` through the settlement check.
+
+### Unlock cart (`lib/x402/cart.ts`)
+
+`/reasoning` can collect locked traces (deduplicated by on-chain id; traces not on-chain are rejected). Each is quoted from its live 402, three at a time. The backend's `unlockPriceRaw` is only a hint and is never shown as the charged amount. Checkout pays one item at a time through `unlockTrace`, so each payment has its journal entry and its own wallet prompt. Before every signature the item's 402 is read again:
+
+- a different `payTo`, asset or network is refused;
+- a higher price pauses the run until the user accepts it for this item, accepts it for all remaining items, or skips;
+- a lower price proceeds, and the receipt records both amounts.
+
+The spending policy runs after that. Without one, a conservative fallback keeps each payment within the run's confirmed total plus any increases the user accepted. A policy denial of `over-daily` or `over-per-trace` skips the rest of the run. Cancelling, or a wallet change, stops before the next item. The receipt (downloadable JSON, bigint amounts as strings) lists each item's status, quoted and paid amounts, settlement hash and verification result, and flags payments that went through without a verified unlock. When the total reaches the daily-pass price, the drawer recommends `/premium`. Everything x402 is hidden when `NEXT_PUBLIC_X402_URL` is empty.
 
 ## PWA and service worker
 

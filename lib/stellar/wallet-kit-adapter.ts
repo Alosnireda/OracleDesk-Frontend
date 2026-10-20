@@ -9,6 +9,8 @@ export interface WalletKitAdapter {
   getAddress(): Promise<{ address: string }>;
   getNetwork(): Promise<{ networkPassphrase: string }>;
   signTransaction(xdr: string, opts: { networkPassphrase: string; address: string }): Promise<{ signedTxXdr: string }>;
+  /** Signs a Soroban auth-entry preimage (base64 HashIdPreimage XDR); returns the base64 signature. */
+  signAuthEntry?(authEntry: string, opts: { networkPassphrase: string; address: string }): Promise<{ signedAuthEntry: string; signerAddress?: string }>;
   disconnect(): Promise<void>;
   onStateUpdated(cb: (payload: { address: string | null; passphrase: string | null }) => void): () => void;
   onDisconnect(cb: () => void): () => void;
@@ -74,6 +76,7 @@ export function loadStellarWalletsKit(): Promise<WalletKitAdapter> {
       getAddress: () => StellarWalletsKit.getAddress(),
       getNetwork: () => StellarWalletsKit.getNetwork(),
       signTransaction: (xdr, opts) => StellarWalletsKit.signTransaction(xdr, opts),
+      signAuthEntry: (authEntry, opts) => StellarWalletsKit.signAuthEntry(authEntry, opts),
       disconnect: () => StellarWalletsKit.disconnect(),
       // The kit's `on` returns the unsubscribe function.
       onStateUpdated: (cb) =>

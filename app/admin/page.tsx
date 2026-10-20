@@ -8,6 +8,41 @@ import { useMarkets } from "@/lib/hooks/useMarkets";
 import { usePlatformStats } from "@/lib/hooks/usePortfolio";
 import { isAdminAddress } from "@/lib/stellar/config";
 import { DiagnosticsPanel } from "@/components/admin/diagnostics-panel";
+import { JobStatusChip } from "@/components/admin/job-status-chip";
+import { useAdminJobs } from "@/lib/admin/job-store";
+import { formatLocalTime, shortJobId } from "@/lib/admin/job-events";
+
+/** Last five runs this browser started, from the job store (no polling here). */
+function RecentGenerationRuns({ address }: { address: string | null }) {
+  const { jobs } = useAdminJobs(address);
+  const recent = jobs.slice(0, 5);
+  return (
+    <div className="bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+      <div className="p-6 border-b border-outline-variant flex justify-between items-center">
+        <h3 className="font-headline-sm text-headline-sm">Recent generation runs</h3>
+        <Link href="/admin/create" className="text-primary font-label-caps text-label-caps hover:underline">
+          Track runs
+        </Link>
+      </div>
+      {recent.length === 0 ? (
+        <div className="p-8 text-center text-on-surface-variant italic">No runs started from this browser.</div>
+      ) : (
+        <ul className="divide-y divide-outline-variant">
+          {recent.map((job) => (
+            <li key={job.jobId} className="flex items-center justify-between gap-4 p-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <JobStatusChip status={job.lastStatus} />
+                <span className="font-data-mono text-data-mono" title={job.jobId}>{shortJobId(job.jobId)}</span>
+                {job.question && <span className="truncate text-on-surface-variant">{job.question}</span>}
+              </div>
+              <span className="text-[11px] text-on-surface-variant shrink-0">{formatLocalTime(job.startedAt)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const AdminStat = ({ label, value, change }: { label: string, value: string, change?: string }) => (
   <div className="bg-white p-6 border border-outline-variant rounded-lg flex flex-col justify-between hover:shadow-md transition-all">
@@ -144,6 +179,8 @@ function AdminContent() {
           </div>
         </div>
       </div>
+
+      <RecentGenerationRuns address={address} />
 
       <DiagnosticsPanel />
     </main>

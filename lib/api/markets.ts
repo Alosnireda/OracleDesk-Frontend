@@ -107,35 +107,62 @@ export async function getResolution(marketId: string) {
   return data;
 }
 
-export async function triggerMarketGeneration(params: {
-  question: string;
-  category: string;
-  expiry: string;
-}) {
-  const { data } = await apiClient.post<{
-    jobId: string;
-    message: string;
-    statusUrl: string;
-    hint: string;
-  }>("/markets/generate", params);
+/**
+ * Optional inputs of POST /markets/generate. The backend accepts them but the
+ * market-maker agent ignores them and picks its own topic from live signals
+ * (docs/api.md), so the admin console sends `{}`.
+ */
+export interface GenerateMarketParams {
+  question?: string;
+  category?: MarketCategory;
+  expiry?: string;
+}
+
+export interface GenerateMarketResponse {
+  jobId: string;
+  message: string;
+  statusUrl: string;
+  hint: string;
+}
+
+/**
+ * The route requires an `Idempotency-Key`: one key per logical run, reused on
+ * retries, so a repeated request can never start a second paid LLM run.
+ */
+export async function triggerMarketGeneration(params: GenerateMarketParams, idempotencyKey: string) {
+  const { data } = await apiClient.post<GenerateMarketResponse>("/markets/generate", params, {
+    "Idempotency-Key": idempotencyKey,
+  });
 
   return data;
 }
 
-export async function getMarketGenerationStatus(jobId: string) {
-  const { data } = await apiClient.get<{
-    jobId: string;
-    status: "RUNNING" | "COMPLETED" | "FAILED";
-    startedAt: string;
-    completedAt: string | null;
-    elapsedMs: number;
-    marketId?: string;
-    onChainMarketId?: string | null;
-    question?: string;
-    category?: MarketCategory;
-    marketUrl?: string;
-    error?: string;
-  }>(`/markets/generation-status/${jobId}`);
+/** UNKNOWN: the backend restarted after the job started (only its start log survived). */
+export type GenerationJobStatus = "RUNNING" | "COMPLETED" | "FAILED" | "UNKNOWN";
 
+/**
+ * GET /markets/generation-status/:jobId. `elapsedMs` and `completedAt` are
+ * absent for UNKNOWN, which carries `message` and `hint` instead. `marketUrl`
+ * is an API path (/api/v1/markets/:id), not a page.
+ */
+export interface GenerationJob {
+  jobId: string;
+  status: GenerationJobStatus;
+  startedAt: string;
+  completedAt?: string | null;
+  elapsedMs?: number;
+  marketId?: string;
+  /** null when the run completed without an on-chain market (dry-run or failed creation). */
+  onChainMarketId?: string | null;
+  question?: string;
+  category?: MarketCategory;
+  marketUrl?: string;
+  error?: string;
+  message?: string;
+  hint?: string;
+}
+
+export async function getMarketGenerationStatus(jobId: string) {
+  const { data } = await apiClient.get<GenerationJob>(`/markets/generation-status/${encodeURIComponent(jobId)}`);
   return data;
 }

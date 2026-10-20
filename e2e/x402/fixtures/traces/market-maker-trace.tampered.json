@@ -1,0 +1,1 @@
+{"action":"create_market","agent":"market-maker","inputs":{"probabilityBps":5200,"question":"Fixture question?","seedStroops":"1500000000","sources":[{"name":"fixture","weight":1}]},"marketId":1,"reasoning":"Fixture trace for the frontend x402 contract tests. Not a reel market decision.","timestamp":1760000000}

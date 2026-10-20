@@ -8,14 +8,25 @@ export class ApiError extends Error {
   code: string;
   status: number;
   details?: unknown;
+  /** Seconds from the response's `Retry-After` header (429 / 409), when the backend sent one. */
+  retryAfterSeconds?: number;
 
-  constructor(error: ApiErrorPayload, status: number) {
+  constructor(error: ApiErrorPayload, status: number, retryAfterSeconds?: number) {
     super(error.message);
     this.name = "ApiError";
     this.code = error.code;
     this.status = status;
     this.details = error.details;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+/** `Retry-After` is either delay-seconds or an HTTP date (RFC 9110 §10.2.3). */
+export function parseRetryAfter(value: string | null, now = Date.now()): number | undefined {
+  if (!value) return undefined;
+  if (/^\d+$/.test(value.trim())) return Number(value.trim());
+  const at = Date.parse(value);
+  return Number.isNaN(at) ? undefined : Math.max(0, Math.ceil((at - now) / 1000));
 }
 
 interface ApiEnvelope<T> {
@@ -129,6 +140,7 @@ async function request<T>(
         message: response.statusText || "Request failed",
       },
       response.status,
+      parseRetryAfter(response.headers.get("Retry-After")),
     );
   }
 
@@ -154,10 +166,11 @@ export const apiClient = {
     return request<T>(path, { method: "GET" }, params);
   },
 
-  post<T>(path: string, body?: unknown) {
+  post<T>(path: string, body?: unknown, headers?: HeadersInit) {
     return request<T>(path, {
       method: "POST",
       body: body === undefined ? undefined : JSON.stringify(body),
+      headers,
     });
   },
 

@@ -1,6 +1,6 @@
 import { Address, nativeToScVal, rpc, scValToNative } from "@stellar/stellar-sdk";
 import { AssembledTransaction, Client as ContractClient, Spec } from "@stellar/stellar-sdk/contract";
-import type { ClientOptions, SignTransaction } from "@stellar/stellar-sdk/contract";
+import type { ClientOptions, SignAuthEntry, SignTransaction } from "@stellar/stellar-sdk/contract";
 import { Client as MarketCoreClient, type Category, type Outcome } from "./generated/market-core";
 import { Client as TreasuryClient } from "./generated/treasury";
 import { Client as ResolverClient } from "./generated/resolver";
@@ -12,6 +12,8 @@ import { getRpcPool, type RpcPool } from "./rpc-pool";
 export interface Signer {
   publicKey: string;
   signTransaction: SignTransaction;
+  /** Signs a Soroban authorization-entry preimage (SEP-43). x402 payments need it. */
+  signAuthEntry?: SignAuthEntry;
 }
 
 /** The endpoint pool in the browser; null on the server (prerender, node tests), which uses RPC_URL. */
