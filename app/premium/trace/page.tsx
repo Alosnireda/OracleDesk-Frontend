@@ -57,7 +57,7 @@ const ACCESS_LABELS: Record<TraceAccessLevel, string> = {
 
 function ReceiptRow({ event }: { event: PaymentEvent }) {
   const created = Number.isNaN(Date.parse(event.createdAt)) ? event.createdAt : new Date(event.createdAt).toLocaleString();
-  const amount = /^\d+$/.test(event.amountRaw ?? "") ? formatUsdc(BigInt(event.amountRaw), { minDecimals: 2 }) : "—";
+  const amount = /^\d+$/.test(event.amountRaw ?? "") ? formatUsdc(BigInt(event.amountRaw ?? "0"), { minDecimals: 2 }) : "—";
   return (
     <li className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
