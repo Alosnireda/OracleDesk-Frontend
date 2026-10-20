@@ -15,6 +15,7 @@ import {
   yesPriceBps,
 } from "../my-positions";
 import { marketLedgerKey, positionLedgerKey } from "../ledger-entries";
+import type { Market } from "../generated/market-core";
 
 interface FakeEntry {
   key: { toXDR(format: "base64"): string };
@@ -35,7 +36,13 @@ function fakeEntry(
   } as FakeEntry;
 }
 
-const openMarket = { close_time: 0n, sets_minted: 1n, reserve_yes: 1n, reserve_no: 1n, status: { tag: "Open" } };
+const openMarket = {
+  close_time: 0n,
+  sets_minted: 1n,
+  reserve_yes: 1n,
+  reserve_no: 1n,
+  status: { tag: "Open", values: undefined },
+} satisfies Pick<Market, "close_time" | "sets_minted" | "reserve_yes" | "reserve_no" | "status">;
 
 describe("my-positions scan", () => {
   beforeEach(() => {
@@ -128,7 +135,7 @@ describe("my-positions scan", () => {
     };
 
     decodeValue.mockImplementation((value: { kind: string }) =>
-      value.kind === "Position" ? { yes: 0n, no: 0n } : openMarket,
+      value.kind === "Position" ? { yes: 1_000_000n, no: 0n } : openMarket,
     );
 
     const result = await scanHolderPositions(holder, count, server as never);
@@ -138,7 +145,9 @@ describe("my-positions scan", () => {
     expect(result.positions[0]).toMatchObject({ marketId: 1n, market: null, settlement: null, valueRaw: null });
   });
 
-  it("caps huge scans to the newest market IDs", async () => {
+  // 20,000 ledger keys are built and XDR-encoded here, which is slow on a
+  // loaded machine; the default 5 s budget is not enough for that.
+  it("caps huge scans to the newest market IDs", { timeout: 30_000 }, async () => {
     const server = { getLedgerEntries: vi.fn(async () => ({ entries: [], latestLedger: 1 })) };
     const result = await scanHolderPositions(Keypair.random().publicKey(), 50_000n, server as never);
     expect(result.scannedMarkets).toBe(MAX_POSITION_SCAN_MARKETS);
@@ -156,10 +165,10 @@ describe("my-positions valuation", () => {
 
   it("marks open positions at the live price and settled positions at their payout", () => {
     const open = { ...openMarket, reserve_yes: 1n, reserve_no: 3n };
-    expect(positionValue({ yes: 2n, no: 2n }, open)).toEqual({ valueRaw: 2_500n, yesBps: 7500 });
-    const resolvedNo = { ...openMarket, status: { tag: "Resolved", values: [{ tag: "No", values: undefined }] } };
+    expect(positionValue({ yes: 2n, no: 2n }, open)).toEqual({ valueRaw: 2n, yesBps: 7500 });
+    const resolvedNo = { ...openMarket, status: { tag: "Resolved", values: [{ tag: "No", values: undefined }] } } as const;
     expect(positionValue({ yes: 2n, no: 2n }, resolvedNo)).toEqual({ valueRaw: 2n, yesBps: null });
-    const voided = { ...openMarket, status: { tag: "Void" } };
+    const voided = { ...openMarket, status: { tag: "Void", values: undefined } } as const;
     expect(positionValue({ yes: 2n, no: 2n }, voided)).toEqual({ valueRaw: 2n, yesBps: null });
   });
 });

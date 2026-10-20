@@ -1,4 +1,5 @@
 "use client";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 import React from "react";
 import { motion } from "framer-motion";
@@ -27,7 +28,7 @@ const data = [
 interface KPIItemProps {
   label: string;
   value: string;
-  icon: string;
+  icon: IconName;
   trend?: React.ReactNode;
   subtext?: React.ReactNode;
   color?: string;
@@ -41,12 +42,12 @@ const KPIItem = ({ label, value, icon, trend, subtext, color = "primary" }: KPII
   >
     <div className="flex items-center justify-between mb-2">
       <span className="font-label-caps text-label-caps text-on-surface-variant">{label}</span>
-      <span className={`material-symbols-outlined text-${color}`}>{icon}</span>
+      <Icon name={icon} className={`text-${color}`} />
     </div>
     <div className="font-headline-md text-headline-md text-on-surface">{value}</div>
     {trend && (
       <div className="mt-2 text-secondary font-data-mono flex items-center gap-1">
-        <span className="material-symbols-outlined text-[16px]">arrow_upward</span>
+        <Icon name="arrow_upward" className="text-[16px]" />
         {trend}
       </div>
     )}
@@ -105,7 +106,7 @@ const ActivityTable = () => {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded bg-surface-container flex items-center justify-center shrink-0">
-                      <span className="material-symbols-outlined text-[18px] text-primary">{item.icon}</span>
+                      <Icon name={item.icon as IconName} className="text-[18px] text-primary" />
                     </div>
                     <div className="font-medium text-on-surface">{item.name}</div>
                   </div>
@@ -134,6 +135,13 @@ const ActivityTable = () => {
 };
 
 export default function PortfolioAnalytics() {
+  // Chart mounts only on the client so the prerender never measures a
+  // zero-size ResponsiveContainer (silences the width(-1) build warning).
+  const [chartMounted, setChartMounted] = React.useState(false);
+  React.useEffect(() => {
+    const frame = requestAnimationFrame(() => setChartMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
   return (
     <div className="min-h-screen bg-surface">
       <main className="pt-24 pb-12 px-gutter max-w-container-max-width mx-auto">
@@ -172,8 +180,9 @@ export default function PortfolioAnalytics() {
               </div>
             </div>
             <div className="h-[320px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data}>
+              {chartMounted ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={320}>
+                  <AreaChart data={data}>
                   <defs>
                     <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="100%">
                       <stop offset="5%" stopColor="#006c49" stopOpacity={0.1}/>
@@ -201,6 +210,9 @@ export default function PortfolioAnalytics() {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              ) : (
+                <div className="h-full w-full animate-pulse-soft rounded bg-surface-container" />
+              )}
               <div className="mt-4 flex justify-between text-on-surface-variant font-data-mono text-[11px]">
                 <span>08:00 AM</span>
                 <span>12:00 PM</span>
@@ -221,7 +233,7 @@ export default function PortfolioAnalytics() {
             </div>
             <div className="mt-8 p-4 bg-surface-container-low rounded-lg border border-outline-variant">
               <div className="flex items-start gap-3">
-                <span className="material-symbols-outlined text-primary">info</span>
+                <Icon name="info" className="text-primary" />
                 <div>
                   <span className="block font-label-caps text-label-caps text-on-surface mb-1">DIVERSIFICATION SCORE</span>
                   <span className="text-headline-sm text-headline-sm text-primary">High (8.4/10)</span>
@@ -238,10 +250,10 @@ export default function PortfolioAnalytics() {
         <div className="lg:col-span-12">
           <div className="bg-[#f0f9fa] border border-primary-container rounded-lg p-6 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-              <span className="material-symbols-outlined text-[120px]">smart_toy</span>
+              <Icon name="smart_toy" className="text-[120px]" />
             </div>
             <div className="flex items-center gap-2 mb-4">
-              <span className="material-symbols-outlined text-primary">bolt</span>
+              <Icon name="bolt" className="text-primary" />
               <h3 className="font-headline-sm text-headline-sm text-primary">Oracle AI Insights</h3>
             </div>
             <p className="text-on-surface mb-6 max-w-3xl font-body-lg">
@@ -249,7 +261,7 @@ export default function PortfolioAnalytics() {
             </p>
             <div className="flex flex-wrap gap-4">
               <button className="flex items-center gap-2 px-4 py-2 border border-primary-container rounded text-primary font-bold text-body-md hover:bg-white transition-colors">
-                <span className="material-symbols-outlined text-[18px]">psychology</span>
+                <Icon name="psychology" className="text-[18px]" />
                 View Full Reasoning
               </button>
               <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded font-bold text-body-md hover:opacity-90 transition-opacity">

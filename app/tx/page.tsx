@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { Suspense, useState } from "react";
 import Link from "next/link";
@@ -61,7 +62,7 @@ function TxContent() {
       <main className="min-h-[calc(100vh-64px)] bg-surface flex items-center justify-center p-6">
         <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl max-w-lg w-full p-8 text-center space-y-6 shadow-sm">
           <div className="w-16 h-16 bg-error-container text-error rounded-full flex items-center justify-center mx-auto">
-            <span className="material-symbols-outlined text-4xl">error</span>
+            <Icon name="error" className="text-4xl" />
           </div>
           <div>
             <h1 className="font-headline-md text-headline-md text-on-surface mb-2">Invalid Transaction Hash</h1>
@@ -99,7 +100,7 @@ function TxContent() {
       <main className="min-h-[calc(100vh-64px)] bg-surface flex items-center justify-center p-6">
         <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl max-w-lg w-full p-8 text-center space-y-6 shadow-sm">
           <div className="w-16 h-16 bg-error-container text-error rounded-full flex items-center justify-center mx-auto">
-            <span className="material-symbols-outlined text-4xl">cloud_off</span>
+            <Icon name="cloud_off" className="text-4xl" />
           </div>
           <div>
             <h1 className="font-headline-md text-headline-md text-on-surface mb-2">RPC Query Failed</h1>
@@ -184,9 +185,10 @@ function TxContent() {
                     : "bg-surface-container text-outline"
                 }`}
               >
-                <span className="material-symbols-outlined text-3xl">
-                  {isSuccess ? "check_circle" : isFailed ? "cancel" : "hourglass_top"}
-                </span>
+                <Icon
+                  name={isSuccess ? "check_circle" : isFailed ? "cancel" : "hourglass_top"}
+                  className="text-3xl"
+                />
               </div>
               <div>
                 <h1 className="font-headline-md text-headline-md text-on-surface">
@@ -209,7 +211,7 @@ function TxContent() {
             {/* Live refresh indicator */}
             {isFetching && (
               <span className="text-[10px] font-label-caps text-primary animate-pulse flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm">sync</span> Syncing
+                <Icon name="sync" className="text-sm" /> Syncing
               </span>
             )}
           </div>
@@ -227,11 +229,10 @@ function TxContent() {
                   type="button"
                   onClick={handleCopy}
                   title="Copy transaction hash"
+                  aria-label="Copy transaction hash"
                   className="p-1 hover:bg-surface-container rounded transition-colors text-outline hover:text-on-surface"
                 >
-                  <span className="material-symbols-outlined text-base">
-                    {copied ? "check" : "content_copy"}
-                  </span>
+                  <Icon name={copied ? "check" : "content_copy"} className="text-base" />
                 </button>
               </div>
             </div>
@@ -336,7 +337,7 @@ function TxContent() {
               className="flex items-center gap-1.5 text-primary hover:underline font-label-caps text-label-caps font-bold text-xs"
             >
               <span>View on Stellar Expert</span>
-              <span className="material-symbols-outlined text-sm">open_in_new</span>
+              <Icon name="open_in_new" className="text-sm" />
             </a>
           </div>
         </div>

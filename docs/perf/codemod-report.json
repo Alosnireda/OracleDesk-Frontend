@@ -1,0 +1,874 @@
+{
+  "totalFilesScanned": 69,
+  "modifiedFilesCount": 36,
+  "totalIconsConverted": 112,
+  "labeledControls": [],
+  "dynamicCasesReported": [
+    {
+      "file": "app/markets/page-client.tsx",
+      "line": 130,
+      "code": "<span className=\"material-symbols-outlined text-[14px]\" style={{ fontVariationSe",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/markets/terminal/page.tsx",
+      "line": 190,
+      "code": "<span className=\"material-symbols-outlined text-primary text-sm\">{m.icon}</span>",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/page-client.tsx",
+      "line": 246,
+      "code": "<span className=\"material-symbols-outlined\">{icon}</span>",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/portfolio/analytics/page.tsx",
+      "line": 44,
+      "code": "<span className={`material-symbols-outlined text-${color}`}>{icon}</span>",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/portfolio/analytics/page.tsx",
+      "line": 108,
+      "code": "<span className=\"material-symbols-outlined text-[18px] text-primary\">{item.icon}",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/portfolio/page.tsx",
+      "line": 226,
+      "code": "<span className=\"material-symbols-outlined text-[14px]\">\n                {(summa",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/portfolio/wallets/page.tsx",
+      "line": 46,
+      "code": "<span className={`material-symbols-outlined ${iconColor} text-[18px]`}>{icon}</s",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/premium/page-client.tsx",
+      "line": 363,
+      "code": "<span className=\"material-symbols-outlined text-primary text-lg\">\n              ",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/reasoning/page.tsx",
+      "line": 27,
+      "code": "<span className=\"material-symbols-outlined text-[16px]\" style={{ fontVariationSe",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/settings/page.tsx",
+      "line": 16,
+      "code": "<span className=\"material-symbols-outlined text-primary\">{icon}</span>",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/stats/page.tsx",
+      "line": 99,
+      "code": "<span className=\"material-symbols-outlined\">{trade.icon}</span>",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/tx/page.tsx",
+      "line": 187,
+      "code": "<span className=\"material-symbols-outlined text-3xl\">\n                  {isSucce",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "app/tx/page.tsx",
+      "line": 232,
+      "code": "<span className=\"material-symbols-outlined text-base\">\n                    {copi",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "components/agent-profile-card.tsx",
+      "line": 90,
+      "code": "<span className=\"material-symbols-outlined text-on-surface-variant text-lg\">\n   ",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "components/demo/buy-confirmation-sheet.tsx",
+      "line": 137,
+      "code": "<span\n              className={`${action.tone === \"yes\" ? \"text-secondary\" : \"te",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "components/demo/wallet-panel.tsx",
+      "line": 71,
+      "code": "<span className=\"material-symbols-outlined text-primary text-[16px]\">{balance.ic",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "components/demo/wallet-panel.tsx",
+      "line": 100,
+      "code": "<span className=\"material-symbols-outlined text-[16px]\">{network.icon}</span>",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "components/demo/wallet-panel.tsx",
+      "line": 121,
+      "code": "<span className=\"material-symbols-outlined text-on-surface-variant group-hover:t",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "components/layout/WalletDropdown.tsx",
+      "line": 188,
+      "code": "<span className=\"material-symbols-outlined text-on-surface-variant group-hover:t",
+      "reason": "Dynamic or expression child"
+    },
+    {
+      "file": "components/trace-history-viewer.tsx",
+      "line": 124,
+      "code": "<span className=\"material-symbols-outlined\">\n                  {expandedDiff ===",
+      "reason": "Dynamic or expression child"
+    }
+  ],
+  "convertedPerFile": {
+    "app/admin/agents/page.tsx": [
+      {
+        "file": "app/admin/agents/page.tsx",
+        "line": 152,
+        "type": "span",
+        "icon": "chevron_right"
+      }
+    ],
+    "app/admin/create/page.tsx": [
+      {
+        "file": "app/admin/create/page.tsx",
+        "line": 186,
+        "type": "span",
+        "icon": "account_balance_wallet"
+      },
+      {
+        "file": "app/admin/create/page.tsx",
+        "line": 196,
+        "type": "span",
+        "icon": "psychology"
+      },
+      {
+        "file": "app/admin/create/page.tsx",
+        "line": 221,
+        "type": "span",
+        "icon": "rocket_launch"
+      },
+      {
+        "file": "app/admin/create/page.tsx",
+        "line": 287,
+        "type": "span",
+        "icon": "auto_awesome"
+      }
+    ],
+    "app/admin/page.tsx": [
+      {
+        "file": "app/admin/page.tsx",
+        "line": 66,
+        "type": "span",
+        "icon": "block"
+      },
+      {
+        "file": "app/admin/page.tsx",
+        "line": 82,
+        "type": "span",
+        "icon": "swap_horiz"
+      },
+      {
+        "file": "app/admin/page.tsx",
+        "line": 103,
+        "type": "span",
+        "icon": "add_circle"
+      },
+      {
+        "file": "app/admin/page.tsx",
+        "line": 110,
+        "type": "span",
+        "icon": "smart_toy"
+      }
+    ],
+    "app/agent/[address]/page.tsx": [
+      {
+        "file": "app/agent/[address]/page.tsx",
+        "line": 64,
+        "type": "span",
+        "icon": "arrow_back"
+      },
+      {
+        "file": "app/agent/[address]/page.tsx",
+        "line": 80,
+        "type": "span",
+        "icon": "info"
+      }
+    ],
+    "app/copy-trade/page.tsx": [
+      {
+        "file": "app/copy-trade/page.tsx",
+        "line": 412,
+        "type": "control (button)",
+        "icon": "close"
+      },
+      {
+        "file": "app/copy-trade/page.tsx",
+        "line": 425,
+        "type": "span",
+        "icon": "psychology"
+      },
+      {
+        "file": "app/copy-trade/page.tsx",
+        "line": 579,
+        "type": "span",
+        "icon": "settings"
+      },
+      {
+        "file": "app/copy-trade/page.tsx",
+        "line": 607,
+        "type": "span",
+        "icon": "query_stats"
+      },
+      {
+        "file": "app/copy-trade/page.tsx",
+        "line": 747,
+        "type": "span",
+        "icon": "bolt"
+      }
+    ],
+    "app/market/[id]/trace-history/page.tsx": [
+      {
+        "file": "app/market/[id]/trace-history/page.tsx",
+        "line": 72,
+        "type": "span",
+        "icon": "arrow_back"
+      }
+    ],
+    "app/market/[id]/trades/page.tsx": [
+      {
+        "file": "app/market/[id]/trades/page.tsx",
+        "line": 68,
+        "type": "span",
+        "icon": "arrow_back"
+      }
+    ],
+    "app/market/page.tsx": [
+      {
+        "file": "app/market/page.tsx",
+        "line": 47,
+        "type": "span",
+        "icon": "history"
+      },
+      {
+        "file": "app/market/page.tsx",
+        "line": 54,
+        "type": "span",
+        "icon": "link"
+      },
+      {
+        "file": "app/market/page.tsx",
+        "line": 235,
+        "type": "span",
+        "icon": "content_copy"
+      },
+      {
+        "file": "app/market/page.tsx",
+        "line": 247,
+        "type": "span",
+        "icon": "close"
+      },
+      {
+        "file": "app/market/page.tsx",
+        "line": 273,
+        "type": "span",
+        "icon": "psychology"
+      }
+    ],
+    "app/markets/page-client.tsx": [
+      {
+        "file": "app/markets/page-client.tsx",
+        "line": 48,
+        "type": "span",
+        "icon": "search"
+      },
+      {
+        "file": "app/markets/page-client.tsx",
+        "line": 220,
+        "type": "span",
+        "icon": "analytics"
+      },
+      {
+        "file": "app/markets/page-client.tsx",
+        "line": 254,
+        "type": "span",
+        "icon": "link"
+      },
+      {
+        "file": "app/markets/page-client.tsx",
+        "line": 305,
+        "type": "span",
+        "icon": "error"
+      }
+    ],
+    "app/markets/quick-view/page.tsx": [
+      {
+        "file": "app/markets/quick-view/page.tsx",
+        "line": 90,
+        "type": "span",
+        "icon": "error"
+      },
+      {
+        "file": "app/markets/quick-view/page.tsx",
+        "line": 160,
+        "type": "span",
+        "icon": "close"
+      },
+      {
+        "file": "app/markets/quick-view/page.tsx",
+        "line": 243,
+        "type": "span",
+        "icon": "psychology"
+      },
+      {
+        "file": "app/markets/quick-view/page.tsx",
+        "line": 253,
+        "type": "span",
+        "icon": "neurology"
+      }
+    ],
+    "app/markets/terminal/page.tsx": [
+      {
+        "file": "app/markets/terminal/page.tsx",
+        "line": 90,
+        "type": "span",
+        "icon": "trending_up"
+      },
+      {
+        "file": "app/markets/terminal/page.tsx",
+        "line": 106,
+        "type": "span",
+        "icon": "psychology"
+      },
+      {
+        "file": "app/markets/terminal/page.tsx",
+        "line": 166,
+        "type": "span",
+        "icon": "filter_list"
+      },
+      {
+        "file": "app/markets/terminal/page.tsx",
+        "line": 167,
+        "type": "span",
+        "icon": "search"
+      },
+      {
+        "file": "app/markets/terminal/page.tsx",
+        "line": 258,
+        "type": "span",
+        "icon": "check_circle"
+      },
+      {
+        "file": "app/markets/terminal/page.tsx",
+        "line": 264,
+        "type": "span",
+        "icon": "check_circle"
+      }
+    ],
+    "app/not-found.tsx": [
+      {
+        "file": "app/not-found.tsx",
+        "line": 6,
+        "type": "span",
+        "icon": "search_off"
+      }
+    ],
+    "app/offline/page.tsx": [
+      {
+        "file": "app/offline/page.tsx",
+        "line": 33,
+        "type": "span",
+        "icon": "cloud_off"
+      }
+    ],
+    "app/page-client.tsx": [
+      {
+        "file": "app/page-client.tsx",
+        "line": 47,
+        "type": "span",
+        "icon": "monitoring"
+      },
+      {
+        "file": "app/page-client.tsx",
+        "line": 73,
+        "type": "span",
+        "icon": "hub"
+      },
+      {
+        "file": "app/page-client.tsx",
+        "line": 129,
+        "type": "span",
+        "icon": "bolt"
+      },
+      {
+        "file": "app/page-client.tsx",
+        "line": 155,
+        "type": "span",
+        "icon": "trending_up"
+      },
+      {
+        "file": "app/page-client.tsx",
+        "line": 294,
+        "type": "span",
+        "icon": "arrow_forward"
+      },
+      {
+        "file": "app/page-client.tsx",
+        "line": 342,
+        "type": "span",
+        "icon": "search_off"
+      },
+      {
+        "file": "app/page-client.tsx",
+        "line": 371,
+        "type": "span",
+        "icon": "psychology"
+      },
+      {
+        "file": "app/page-client.tsx",
+        "line": 381,
+        "type": "span",
+        "icon": "verified"
+      },
+      {
+        "file": "app/page-client.tsx",
+        "line": 390,
+        "type": "span",
+        "icon": "hub"
+      },
+      {
+        "file": "app/page-client.tsx",
+        "line": 431,
+        "type": "span",
+        "icon": "workspace_premium"
+      }
+    ],
+    "app/portfolio/analytics/page.tsx": [
+      {
+        "file": "app/portfolio/analytics/page.tsx",
+        "line": 49,
+        "type": "span",
+        "icon": "arrow_upward"
+      },
+      {
+        "file": "app/portfolio/analytics/page.tsx",
+        "line": 235,
+        "type": "span",
+        "icon": "info"
+      },
+      {
+        "file": "app/portfolio/analytics/page.tsx",
+        "line": 252,
+        "type": "span",
+        "icon": "smart_toy"
+      },
+      {
+        "file": "app/portfolio/analytics/page.tsx",
+        "line": 255,
+        "type": "span",
+        "icon": "bolt"
+      },
+      {
+        "file": "app/portfolio/analytics/page.tsx",
+        "line": 263,
+        "type": "span",
+        "icon": "psychology"
+      }
+    ],
+    "app/portfolio/page.tsx": [
+      {
+        "file": "app/portfolio/page.tsx",
+        "line": 58,
+        "type": "span",
+        "icon": "terminal"
+      },
+      {
+        "file": "app/portfolio/page.tsx",
+        "line": 333,
+        "type": "span",
+        "icon": "account_balance_wallet"
+      },
+      {
+        "file": "app/portfolio/page.tsx",
+        "line": 560,
+        "type": "span",
+        "icon": "psychology"
+      }
+    ],
+    "app/portfolio/wallets/page.tsx": [
+      {
+        "file": "app/portfolio/wallets/page.tsx",
+        "line": 14,
+        "type": "span",
+        "icon": "account_balance_wallet"
+      },
+      {
+        "file": "app/portfolio/wallets/page.tsx",
+        "line": 170,
+        "type": "span",
+        "icon": "add"
+      },
+      {
+        "file": "app/portfolio/wallets/page.tsx",
+        "line": 185,
+        "type": "span",
+        "icon": "open_in_new"
+      }
+    ],
+    "app/premium/page-client.tsx": [
+      {
+        "file": "app/premium/page-client.tsx",
+        "line": 461,
+        "type": "control (button)",
+        "icon": "close"
+      },
+      {
+        "file": "app/premium/page-client.tsx",
+        "line": 504,
+        "type": "span",
+        "icon": "check_circle"
+      }
+    ],
+    "app/premium/trace/page.tsx": [
+      {
+        "file": "app/premium/trace/page.tsx",
+        "line": 76,
+        "type": "span",
+        "icon": "open_in_new"
+      },
+      {
+        "file": "app/premium/trace/page.tsx",
+        "line": 199,
+        "type": "span",
+        "icon": "lock"
+      },
+      {
+        "file": "app/premium/trace/page.tsx",
+        "line": 222,
+        "type": "span",
+        "icon": "error"
+      }
+    ],
+    "app/reasoning/detail/page.tsx": [
+      {
+        "file": "app/reasoning/detail/page.tsx",
+        "line": 124,
+        "type": "span",
+        "icon": "psychology"
+      },
+      {
+        "file": "app/reasoning/detail/page.tsx",
+        "line": 179,
+        "type": "span",
+        "icon": "terminal"
+      },
+      {
+        "file": "app/reasoning/detail/page.tsx",
+        "line": 195,
+        "type": "span",
+        "icon": "public"
+      },
+      {
+        "file": "app/reasoning/detail/page.tsx",
+        "line": 211,
+        "type": "span",
+        "icon": "history_edu"
+      },
+      {
+        "file": "app/reasoning/detail/page.tsx",
+        "line": 272,
+        "type": "span",
+        "icon": "bolt"
+      }
+    ],
+    "app/reasoning/page.tsx": [
+      {
+        "file": "app/reasoning/page.tsx",
+        "line": 57,
+        "type": "span",
+        "icon": "analytics"
+      },
+      {
+        "file": "app/reasoning/page.tsx",
+        "line": 65,
+        "type": "span",
+        "icon": "balance"
+      },
+      {
+        "file": "app/reasoning/page.tsx",
+        "line": 84,
+        "type": "span",
+        "icon": "lock"
+      },
+      {
+        "file": "app/reasoning/page.tsx",
+        "line": 118,
+        "type": "span",
+        "icon": "lock_open"
+      },
+      {
+        "file": "app/reasoning/page.tsx",
+        "line": 178,
+        "type": "span",
+        "icon": "error"
+      }
+    ],
+    "app/reasoning/verify/page.tsx": [
+      {
+        "file": "app/reasoning/verify/page.tsx",
+        "line": 258,
+        "type": "span",
+        "icon": "verified_user"
+      },
+      {
+        "file": "app/reasoning/verify/page.tsx",
+        "line": 268,
+        "type": "span",
+        "icon": "close"
+      },
+      {
+        "file": "app/reasoning/verify/page.tsx",
+        "line": 334,
+        "type": "span",
+        "icon": "verified_user"
+      },
+      {
+        "file": "app/reasoning/verify/page.tsx",
+        "line": 351,
+        "type": "span",
+        "icon": "link"
+      },
+      {
+        "file": "app/reasoning/verify/page.tsx",
+        "line": 356,
+        "type": "span",
+        "icon": "search"
+      }
+    ],
+    "app/settings/page.tsx": [
+      {
+        "file": "app/settings/page.tsx",
+        "line": 79,
+        "type": "span",
+        "icon": "account_balance_wallet"
+      },
+      {
+        "file": "app/settings/page.tsx",
+        "line": 115,
+        "type": "span",
+        "icon": "settings_input_component"
+      }
+    ],
+    "app/stats/page.tsx": [
+      {
+        "file": "app/stats/page.tsx",
+        "line": 27,
+        "type": "span",
+        "icon": "arrow_upward"
+      },
+      {
+        "file": "app/stats/page.tsx",
+        "line": 32,
+        "type": "span",
+        "icon": "check_circle"
+      },
+      {
+        "file": "app/stats/page.tsx",
+        "line": 238,
+        "type": "span",
+        "icon": "verified_user"
+      },
+      {
+        "file": "app/stats/page.tsx",
+        "line": 249,
+        "type": "span",
+        "icon": "download"
+      },
+      {
+        "file": "app/stats/page.tsx",
+        "line": 252,
+        "type": "span",
+        "icon": "code"
+      }
+    ],
+    "app/tx/page.tsx": [
+      {
+        "file": "app/tx/page.tsx",
+        "line": 64,
+        "type": "span",
+        "icon": "error"
+      },
+      {
+        "file": "app/tx/page.tsx",
+        "line": 102,
+        "type": "span",
+        "icon": "cloud_off"
+      },
+      {
+        "file": "app/tx/page.tsx",
+        "line": 212,
+        "type": "span",
+        "icon": "sync"
+      },
+      {
+        "file": "app/tx/page.tsx",
+        "line": 339,
+        "type": "span",
+        "icon": "open_in_new"
+      }
+    ],
+    "components/agent-profile-card.tsx": [
+      {
+        "file": "components/agent-profile-card.tsx",
+        "line": 76,
+        "type": "span",
+        "icon": "info"
+      },
+      {
+        "file": "components/agent-profile-card.tsx",
+        "line": 104,
+        "type": "span",
+        "icon": "account_balance"
+      },
+      {
+        "file": "components/agent-profile-card.tsx",
+        "line": 121,
+        "type": "span",
+        "icon": "history"
+      }
+    ],
+    "components/demo/buy-confirmation-sheet.tsx": [
+      {
+        "file": "components/demo/buy-confirmation-sheet.tsx",
+        "line": 74,
+        "type": "span",
+        "icon": "close"
+      }
+    ],
+    "components/demo/screens/execution-terminal-screen.tsx": [
+      {
+        "file": "components/demo/screens/execution-terminal-screen.tsx",
+        "line": 51,
+        "type": "span",
+        "icon": "trending_down"
+      }
+    ],
+    "components/demo/screens/wallet-demo-screen.tsx": [
+      {
+        "file": "components/demo/screens/wallet-demo-screen.tsx",
+        "line": 31,
+        "type": "span",
+        "icon": "account_balance_wallet"
+      }
+    ],
+    "components/demo/wallet-panel.tsx": [
+      {
+        "file": "components/demo/wallet-panel.tsx",
+        "line": 53,
+        "type": "span",
+        "icon": "account_balance_wallet"
+      },
+      {
+        "file": "components/demo/wallet-panel.tsx",
+        "line": 126,
+        "type": "span",
+        "icon": "chevron_right"
+      },
+      {
+        "file": "components/demo/wallet-panel.tsx",
+        "line": 137,
+        "type": "span",
+        "icon": "logout"
+      },
+      {
+        "file": "components/demo/wallet-panel.tsx",
+        "line": 146,
+        "type": "span",
+        "icon": "auto_awesome"
+      }
+    ],
+    "components/layout/Navbar.tsx": [
+      {
+        "file": "components/layout/Navbar.tsx",
+        "line": 61,
+        "type": "span",
+        "icon": "expand_more"
+      },
+      {
+        "file": "components/layout/Navbar.tsx",
+        "line": 101,
+        "type": "control (Link)",
+        "icon": "notifications"
+      }
+    ],
+    "components/layout/WalletDropdown.tsx": [
+      {
+        "file": "components/layout/WalletDropdown.tsx",
+        "line": 106,
+        "type": "span",
+        "icon": "account_balance_wallet"
+      },
+      {
+        "file": "components/layout/WalletDropdown.tsx",
+        "line": 108,
+        "type": "span",
+        "icon": "expand_more"
+      },
+      {
+        "file": "components/layout/WalletDropdown.tsx",
+        "line": 204,
+        "type": "span",
+        "icon": "open_in_new"
+      },
+      {
+        "file": "components/layout/WalletDropdown.tsx",
+        "line": 222,
+        "type": "span",
+        "icon": "logout"
+      }
+    ],
+    "components/multisig-review.tsx": [
+      {
+        "file": "components/multisig-review.tsx",
+        "line": 150,
+        "type": "span",
+        "icon": "close"
+      }
+    ],
+    "components/require-wallet.tsx": [
+      {
+        "file": "components/require-wallet.tsx",
+        "line": 26,
+        "type": "span",
+        "icon": "lock"
+      },
+      {
+        "file": "components/require-wallet.tsx",
+        "line": 38,
+        "type": "span",
+        "icon": "account_balance_wallet"
+      }
+    ],
+    "components/trace-history-viewer.tsx": [
+      {
+        "file": "components/trace-history-viewer.tsx",
+        "line": 145,
+        "type": "span",
+        "icon": "analytics"
+      }
+    ],
+    "components/tx-review.tsx": [
+      {
+        "file": "components/tx-review.tsx",
+        "line": 120,
+        "type": "span",
+        "icon": "close"
+      }
+    ]
+  }
+}

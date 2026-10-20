@@ -186,7 +186,11 @@ export function transition(s: WalletState, e: WalletEvent): Transition {
     case "NETWORK_REPORTED":
       if (e.epoch !== s.epoch) return stay(s);
       if ((s.tag === "connected" || s.tag === "authenticating") && s.address === e.address) {
-        return stay({ ...s, network: e.passphrase ?? s.network });
+        const network = e.passphrase ?? s.network;
+        // The same network again: keep the same state object so the provider
+        // does not re-render at all.
+        if (network === s.network) return stay(s);
+        return stay({ ...s, network });
       }
       return stay(s);
 
@@ -204,7 +208,11 @@ export function transition(s: WalletState, e: WalletEvent): Transition {
         return { state: { tag: "disconnected", epoch: s.epoch, error: null }, effects };
       }
       if ((s.tag === "connected" || s.tag === "authenticating") && s.address === e.address) {
-        return stay({ ...s, network: e.passphrase ?? s.network });
+        const network = e.passphrase ?? s.network;
+        // The kit repeats the same address and network on internal state
+        // changes. Keeping the same state object means no re-render.
+        if (network === s.network) return stay(s);
+        return stay({ ...s, network });
       }
       // A different account (or a first account after disconnect): no session carries over.
       const effects: WalletEffect[] = [...clear];
@@ -236,7 +244,10 @@ export function transition(s: WalletState, e: WalletEvent): Transition {
 
     case "SESSION_SYNCED": {
       if (s.tag !== "connected") return stay(s);
-      return stay({ ...s, session: e.wallet === s.address ? sessionFor(e.wallet) : null });
+      const session = e.wallet === s.address ? sessionFor(e.wallet) : null;
+      // Same session: keep the same state object, so nothing re-renders.
+      if (session?.wallet === s.session?.wallet) return stay(s);
+      return stay({ ...s, session });
     }
 
     case "ENSURE_SESSION": {

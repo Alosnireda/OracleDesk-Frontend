@@ -1,4 +1,5 @@
 "use client";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 import React from "react";
 import { useWallet } from "@/lib/contexts/WalletContext";
@@ -11,7 +12,7 @@ const WalletCard = ({ name, address, balance, active }: { name: string, address:
   <div className={`bg-white border ${active ? 'border-primary' : 'border-outline-variant'} rounded p-4 flex items-center justify-between group hover:border-primary transition-colors cursor-pointer`}>
     <div className="flex items-center gap-3">
       <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center">
-        <span className="material-symbols-outlined text-primary">account_balance_wallet</span>
+        <Icon name="account_balance_wallet" className="text-primary" />
       </div>
       <div>
         <div className="font-bold text-on-surface">{name}</div>
@@ -29,7 +30,7 @@ const WalletCard = ({ name, address, balance, active }: { name: string, address:
 
 interface TransactionRowProps {
   type: string;
-  icon: string;
+  icon: IconName;
   iconColor: string;
   asset: string;
   amount: string;
@@ -43,7 +44,7 @@ const TransactionRow = ({ type, icon, iconColor, asset, amount, amountColor, sta
   <tr className="zebra-stripe border-b border-outline-variant group transition-colors hover:bg-surface-container/40">
     <td className="px-4 py-4">
       <div className="flex items-center gap-2">
-        <span className={`material-symbols-outlined ${iconColor} text-[18px]`}>{icon}</span>
+        <Icon name={icon} className={`${iconColor} text-[18px]`} />
         <span className="font-body-md text-on-surface">{type}</span>
       </div>
     </td>
@@ -167,7 +168,7 @@ export default function WalletsPage() {
             className="w-full py-3 border-2 border-dashed border-outline-variant rounded text-on-surface-variant font-label-caps text-label-caps hover:bg-surface-container hover:border-primary hover:text-primary transition-all flex items-center justify-center gap-2"
             onClick={() => openModal()}
           >
-            <span className="material-symbols-outlined text-[18px]">add</span> ADD NEW WALLET
+            <Icon name="add" className="text-[18px]" /> ADD NEW WALLET
           </button>
         </div>
 
@@ -182,7 +183,7 @@ export default function WalletsPage() {
                 rel="noopener noreferrer"
                 className="text-primary hover:underline font-label-caps text-[11px] inline-flex items-center gap-1"
               >
-                YOUR REAL HISTORY ON STELLAR EXPERT <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+                YOUR REAL HISTORY ON STELLAR EXPERT <Icon name="open_in_new" className="text-[14px]" />
               </a>
             )}
           </div>

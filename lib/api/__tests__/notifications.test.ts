@@ -16,7 +16,7 @@ describe("lib/api/notifications", () => {
   it("GETs the VAPID key and validates it", async () => {
     const f = stubFetch({ publicKey: KEY });
     await expect(getVapidKey()).resolves.toBe(KEY);
-    expect(String(f.mock.calls[0][0])).toMatch(/\/notifications\/vapid-key$/);
+    expect(String((f.mock.calls[0] as unknown as [string])[0])).toMatch(/\/notifications\/vapid-key$/);
     stubFetch({ publicKey: 42 });
     await expect(getVapidKey()).rejects.toBeInstanceOf(InvalidResponseError);
   });

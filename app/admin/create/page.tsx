@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React, { useState, useEffect, useRef } from "react";
 import { RequireWallet } from "@/components/require-wallet";
@@ -183,9 +184,7 @@ function AdminCreateContent() {
                   value={liquidity}
                   onChange={handleLiquidityChange}
                 />
-                <span className="material-symbols-outlined absolute left-3 top-3 text-on-surface-variant">
-                  account_balance_wallet
-                </span>
+                <Icon name="account_balance_wallet" className="absolute left-3 top-3 text-on-surface-variant" />
               </div>
             </div>
 
@@ -193,7 +192,7 @@ function AdminCreateContent() {
             <div className="flex items-center justify-between p-4 bg-surface-container-low rounded border border-outline-variant">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded bg-primary-container flex items-center justify-center text-on-primary-container">
-                  <span className="material-symbols-outlined">psychology</span>
+                  <Icon name="psychology" />
                 </div>
                 <div>
                   <h3 className="font-headline-sm text-headline-sm">AI Oracle Reasoning</h3>
@@ -218,7 +217,7 @@ function AdminCreateContent() {
               onClick={handleDeploy}
               disabled={generateMarket.isPending}
             >
-              <span className="material-symbols-outlined">rocket_launch</span>
+              <Icon name="rocket_launch" />
               {generateMarket.isPending ? "GENERATING..." : "DEPLOY INSTITUTIONAL MARKET"}
             </button>
           </form>
@@ -284,7 +283,7 @@ function AdminCreateContent() {
                 className={`p-4 bg-[#f0f9fa] rounded border border-primary-container/20 space-y-2 transition-opacity duration-300 ${aiEnabled ? "opacity-100" : "opacity-0"}`}
               >
                 <div className="flex items-center gap-2 text-primary">
-                  <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                  <Icon name="auto_awesome" className="text-[18px]" />
                   <span className="font-label-caps text-label-caps">ORACLE INSIGHT ENABLED</span>
                 </div>
                 <div className="h-2 w-3/4 bg-primary-container/10 rounded"></div>

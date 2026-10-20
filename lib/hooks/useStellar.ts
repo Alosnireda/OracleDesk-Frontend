@@ -4,15 +4,16 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Keypair, scValToNative, TransactionBuilder, xdr } from "@stellar/stellar-sdk";
 import type { AssembledTransaction } from "@stellar/stellar-sdk/contract";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletAddress, useWalletNetwork, useWalletSigner } from "@/lib/contexts/WalletContext";
 import { currentRpcUrl, marketCore, reasoningRegistry, rpcPool, token, Outcomes, rpcServer, withPinnedRpc, type OutcomeTag, type Signer } from "@/lib/stellar/clients";
+import { createMarketBatcher } from "@/lib/stellar/market-batch";
 import { DEBUG_ENABLED } from "@/lib/diagnostics/flags";
 import { recordSimulation } from "@/lib/diagnostics/events";
 import { useUpdatePending } from "@/lib/pwa/update-context";
 import { describeError, describeSubmission, UserFacingError, type ContractName } from "@/lib/stellar/errors";
 import { BPS, priceYesBps } from "@/lib/stellar/generated/fpmm";
 import type { Config, Market as OnChainMarket, Position } from "@/lib/stellar/generated/market-core";
-import { fetchAndVerifyTrace, type TraceCheck } from "@/lib/stellar/trace";
+import { verifyTraceInWorker, type TraceCheck } from "@/lib/stellar/trace";
 import { read, submit, bytesToHex, simulatedWithLedger, simulated } from "@/lib/stellar/typed-call";
 import { maxIn, minOut } from "@/lib/stellar/units";
 import {
@@ -64,6 +65,7 @@ export { read, submit, simulated, bytesToHex };
 /** Query keys all start with "stellar" so a disconnect can drop them in one go. */
 export const stellarKeys = {
   marketCount: ["stellar", "marketCount"] as const,
+  traceCount: ["stellar", "traceCount"] as const,
   config: ["stellar", "config"] as const,
   ledgerNow: ["stellar", "ledgerNow"] as const,
   market: (id: string) => ["stellar", "market", id] as const,
@@ -144,7 +146,8 @@ async function requireUsdcTrustline(address: string): Promise<TrustlineState> {
   return state;
 }
 
-async function fetchLedgerNow(): Promise<bigint> {
+/** Close time of the latest ledger, in seconds: the clock the contracts use for time-based rules. */
+export async function fetchLedgerNow(): Promise<bigint> {
   const latest = await rpcServer().getLatestLedger();
   const response = await rpcServer().getTransactions({
     startLedger: latest.sequence,
@@ -200,6 +203,15 @@ export function useMarketCount() {
   });
 }
 
+/** Number of traces the reasoning registry has accepted. */
+export function useTraceCount() {
+  return useQuery({
+    queryKey: stellarKeys.traceCount,
+    queryFn: async () => read(await measured("trace_count", () => reasoningRegistry().trace_count(), "reasoningRegistry")),
+    staleTime: 30_000,
+  });
+}
+
 export function useMarketConfig() {
   return useQuery({
     queryKey: stellarKeys.config,
@@ -225,11 +237,25 @@ export interface OnChainMarketView {
   ledger: number | null;
 }
 
-export async function fetchOnChainMarket(id: bigint | string): Promise<OnChainMarketView> {
+/** The simulation read. Write flows use this directly so the read is at least
+ * as fresh as the transaction they are about to build. */
+export async function fetchOnChainMarketBySimulation(id: bigint | string): Promise<OnChainMarketView> {
   const tx = await measured("get_market", () => marketCore().get_market({ market_id: toId(id) }));
   const market = read(tx);
   const ledger = tx.simulation?.latestLedger;
   return { id: String(id), market, yesBps: Number(priceYesBps(market.reserve_yes, market.reserve_no)), ledger: typeof ledger === "number" ? ledger : null };
+}
+
+const marketBatcher = createMarketBatcher({
+  server: rpcServer(),
+  spec: marketCore().spec,
+  fallback: fetchOnChainMarketBySimulation,
+});
+
+/** Reads one market through the shared ledger-entry batcher, falling back to
+ * the binding's simulation for missing or archived entries. */
+export async function fetchOnChainMarket(id: bigint | string): Promise<OnChainMarketView> {
+  return (await marketBatcher.load(toId(id))).view;
 }
 
 /** Keeps the cached view when a refetch came from an endpoint on an older ledger. */
@@ -245,14 +271,33 @@ export function useOnChainMarket(id: bigint | string | null | undefined) {
     queryFn: async () =>
       newerMarketView(client.getQueryData<OnChainMarketView>(stellarKeys.market(String(id))), await fetchOnChainMarket(id as string)),
     enabled: id !== null && id !== undefined && id !== "",
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: Infinity,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
+    // One page-level heartbeat refetches every visible market together, so
+    // the batcher gets one request per refresh cycle instead of one per card.
   });
 }
 
 /**
- * Newest first: ids count-1 … count-limit. One RPC read per market; an
- * indexer-backed endpoint should replace this (backlog).
+ * Refreshes every active market read (cards and the newest-on-chain section)
+ * together. All query functions run in the same tick, so market-batch coalesces
+ * them into one getLedgerEntries request per 200 markets.
+ */
+export function useMarketsHeartbeat() {
+  const client = useQueryClient();
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.hidden) return;
+      void client.refetchQueries({ queryKey: ["stellar", "market"], type: "active" });
+      void client.refetchQueries({ queryKey: ["stellar", "markets"], type: "active" });
+    }, 30_000);
+    return () => window.clearInterval(timer);
+  }, [client]);
+}
+
+/**
+ * Newest first: ids count-1 … count-limit, read in batches.
  */
 export function useOnChainMarkets(limit = 20) {
   const count = useMarketCount();
@@ -263,8 +308,11 @@ export function useOnChainMarkets(limit = 20) {
     queryFn: async () => {
       const ids: bigint[] = [];
       for (let i = (total as bigint) - 1n; i >= 0n && ids.length < limit; i--) ids.push(i);
-      const settled = await Promise.allSettled(ids.map((id) => fetchOnChainMarket(id)));
-      return settled.flatMap((r) => (r.status === "fulfilled" ? [r.value] : []));
+      const results = await marketBatcher.loadMany(ids);
+      return ids.flatMap((id) => {
+        const result = results.get(id.toString());
+        return result && !(result instanceof Error) ? [result.view] : [];
+      });
     },
     staleTime: 30_000,
   });
@@ -280,7 +328,9 @@ function positionOptions(client: ReturnType<typeof useQueryClient>, id: bigint |
       signal.throwIfAborted();
       return reconcileRead(client.getQueryData(queryKey), fresh, (a, b) => a.yes === b.yes && a.no === b.no, queryKey);
     },
-    staleTime: 15_000,
+    staleTime: Infinity,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
   };
 }
 export function usePosition(id: bigint | string | null | undefined, holder: string | null | undefined) {
@@ -300,8 +350,9 @@ function balanceOptions(client: ReturnType<typeof useQueryClient>, owner: string
       signal.throwIfAborted();
       return reconcileRead(client.getQueryData(queryKey), fresh, (a, b) => a === b, queryKey);
     },
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: Infinity,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
   };
 }
 export function useUsdcBalance(owner: string | null | undefined) {
@@ -396,7 +447,7 @@ export function useAccountReserve(address: string | null | undefined) {
 }
 
 export function useUsdcTrustline(owner: string | null | undefined) {
-  const { isWrongNetwork } = useWallet();
+  const { isWrongNetwork } = useWalletNetwork();
   return useQuery({
     queryKey: stellarKeys.trustline(owner ?? ""),
     enabled: Boolean(owner) && !isWrongNetwork,
@@ -620,7 +671,7 @@ export function useVerifiedTrace(onChainTraceId: bigint | string | null | undefi
   return useQuery({
     queryKey: stellarKeys.trace(String(onChainTraceId)),
     enabled: onChainTraceId !== null && onChainTraceId !== undefined && onChainTraceId !== "",
-    queryFn: async (): Promise<VerifiedTrace> => {
+    queryFn: async ({ signal }): Promise<VerifiedTrace> => {
       const trace = read(await reasoningRegistry().get_trace({ trace_id: toId(onChainTraceId as string) }), "reasoningRegistry");
       const onChainHash = bytesToHex(trace.trace_hash);
       return {
@@ -631,7 +682,7 @@ export function useVerifiedTrace(onChainTraceId: bigint | string | null | undefi
         ipfsCid: trace.ipfs_cid,
         onChainHash,
         publishedAt: Number(trace.published_at),
-        check: await fetchAndVerifyTrace(trace.ipfs_cid, onChainHash),
+        check: await verifyTraceInWorker(trace.ipfs_cid, onChainHash, { signal }),
       };
     },
     staleTime: 5 * 60_000,
@@ -641,10 +692,13 @@ export function useVerifiedTrace(onChainTraceId: bigint | string | null | undefi
 // ─── Writes ─────────────────────────────────────────────────────────────────
 
 function useWriteGuard(): () => Signer {
-  const { signer, isWrongNetwork } = useWallet();
+  const signer = useWalletSigner();
+  const { isWrongNetwork } = useWalletNetwork();
   const queryClient = useQueryClient();
   const updatePending = useUpdatePending();
-  return () => {
+  // The guard's identity is stable, so the write hooks don't get a new
+  // mutation function on every wallet change.
+  return useCallback(() => {
     // Never sign with an outdated bundle (stale contract ids or slippage logic).
     if (updatePending) {
       throw new UserFacingError({ kind: "unknown", message: "Reload to update OracleDesk before signing." });
@@ -665,7 +719,7 @@ function useWriteGuard(): () => Signer {
       });
     }
     return signer;
-  };
+  }, [signer, isWrongNetwork, queryClient, updatePending]);
 }
 
 export function useInvalidateAfterTrade() {
@@ -860,7 +914,7 @@ export async function redeemOnce(
   attempt: 0 | 1 = 0,
 ): Promise<{ payout: bigint; txHash: string | null; ledger: number | null; holder: string }> {
   const id = toId(marketId);
-  const view = await fetchOnChainMarket(id);
+  const view = await fetchOnChainMarketBySimulation(id);
   const position = simulated(await marketCore().get_position({ market_id: id, holder: signer.publicKey }));
   throwPreflight(preflightRedeem({ market: view.market, position }));
   const initial = await prepareRedeem(signer, id);
@@ -980,7 +1034,7 @@ function runQueuedWrite<T>(
 
 async function fetchTradePreflightInput(marketId: bigint, holder: string, includeBalance: boolean): Promise<PreflightInput> {
   const [view, config, ledgerNow, position, usdcBalance] = await Promise.all([
-    fetchOnChainMarket(marketId),
+    fetchOnChainMarketBySimulation(marketId),
     fetchMarketConfig(),
     fetchLedgerNow(),
     marketCore()
@@ -1079,7 +1133,7 @@ export function useSell() {
       return runQueuedWrite(signer, `Sell ${outcome} on #${marketId}`, dedupeValue("sell", marketId, outcome, params.shares), guard, async () => {
       await requireUsdcTrustline(signer.publicKey);
       const id = toId(marketId);
-      let { market } = await fetchOnChainMarket(id);
+      let { market } = await fetchOnChainMarketBySimulation(id);
       const position = simulated(
         await marketCore().get_position({ market_id: id, holder: signer.publicKey }),
       );
@@ -1110,7 +1164,7 @@ export function useSell() {
         );
       let confirmed = await reconcileWithQuote(local, quoteAt);
       if (confirmed.sharesIn !== local.sharesIn) {
-        market = (await fetchOnChainMarket(id)).market;
+        market = (await fetchOnChainMarketBySimulation(id)).market;
         const [freshSold, freshOther] =
           outcome === "Yes" ? [market.reserve_yes, market.reserve_no] : [market.reserve_no, market.reserve_yes];
         const refreshed = solveSellForShares(freshSold, freshOther, shares, BigInt(market.fee_bps));
@@ -1296,7 +1350,7 @@ export interface RedeemAllController {
 }
 
 export function useRedeemAll(): RedeemAllController {
-  const { address } = useWallet();
+  const { address } = useWalletAddress();
   const guard = useWriteGuard();
   const queryClient = useQueryClient();
   const [discoveryState, setDiscovery] = useState<RedeemDiscovery | null>(null);
@@ -1643,7 +1697,7 @@ async function resolveSellBoundsForMultisig(
   slippageBps: number,
   holder: string,
 ): Promise<{ collateralOut: bigint; maxSharesIn: bigint; shares: bigint }> {
-  const view = await fetchOnChainMarket(marketId);
+  const view = await fetchOnChainMarketBySimulation(marketId);
   const position = simulated(await marketCore().get_position({ market_id: marketId, holder }));
   const heldShares = outcome === "Yes" ? position.yes : position.no;
   const shares = mode === "all" ? heldShares : sharesInput;
@@ -1734,7 +1788,7 @@ export function usePrepareMultisig() {
       if (input.kind === "buy") {
         const slippage = input.slippageBps ?? MULTISIG_DEFAULT_SLIPPAGE_BPS;
         const id = toId(input.marketId);
-        const [view, ledgerNow] = await Promise.all([fetchOnChainMarket(id), fetchLedgerNow().catch(() => null)]);
+        const [view, ledgerNow] = await Promise.all([fetchOnChainMarketBySimulation(id), fetchLedgerNow().catch(() => null)]);
         closeTime = Number(view.market.close_time);
         const timeout = await cappedTimeout(requestedTimeout, view.market.close_time, ledgerNow === null ? null : Number(ledgerNow));
         const quote = simulated(await marketCore().quote_buy({ market_id: id, outcome: Outcomes[input.outcome], collateral_in: input.collateralIn }));
@@ -1758,7 +1812,7 @@ export function usePrepareMultisig() {
       } else if (input.kind === "sell") {
         const slippage = input.slippageBps ?? MULTISIG_DEFAULT_SLIPPAGE_BPS;
         const id = toId(input.marketId);
-        const [view, ledgerNow] = await Promise.all([fetchOnChainMarket(id), fetchLedgerNow().catch(() => null)]);
+        const [view, ledgerNow] = await Promise.all([fetchOnChainMarketBySimulation(id), fetchLedgerNow().catch(() => null)]);
         closeTime = Number(view.market.close_time);
         const timeout = await cappedTimeout(requestedTimeout, view.market.close_time, ledgerNow === null ? null : Number(ledgerNow));
         const { collateralOut, maxSharesIn } = await resolveSellBoundsForMultisig(

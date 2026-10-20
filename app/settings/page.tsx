@@ -1,4 +1,5 @@
 "use client";
+import { Icon, type IconName } from "@/components/ui/icon";
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -13,6 +14,12 @@ import { shortAddress } from "@/lib/stellar/units";
 function SettingsSection({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return <section className="rounded-lg border border-outline-variant bg-surface-container-lowest p-6"><h2 className="mb-6 flex items-center gap-2 font-headline-sm text-headline-sm"><span className="material-symbols-outlined text-primary">{icon}</span>{title}</h2>{children}</section>;
 }
+
+const notificationRows = [
+  { key: "execution", label: "Trade confirmations", sublabel: "Submitted and confirmed fills." },
+  { key: "news", label: "Price and market updates", sublabel: "New reasoning traces or outcome changes." },
+  { key: "shifts", label: "Probability shifts", sublabel: "When a market moves more than 5%." },
+] as const;
 
 export default function SettingsPage() {
   const wallet = useWallet();

@@ -1,4 +1,5 @@
 "use client";
+import { Icon } from "@/components/ui/icon";
 
 import React from "react";
 import Link from "next/link";
@@ -7,6 +8,7 @@ import { useWallet } from "@/lib/contexts/WalletContext";
 import { useMarkets } from "@/lib/hooks/useMarkets";
 import { usePlatformStats } from "@/lib/hooks/usePortfolio";
 import { isAdminAddress } from "@/lib/stellar/config";
+import { DiagnosticsPanel } from "@/components/admin/diagnostics-panel";
 
 const AdminStat = ({ label, value, change }: { label: string, value: string, change?: string }) => (
   <div className="bg-white p-6 border border-outline-variant rounded-lg flex flex-col justify-between hover:shadow-md transition-all">
@@ -62,7 +64,7 @@ function AdminContent() {
       <main className="flex-grow flex items-center justify-center p-gutter">
         <div className="max-w-md w-full text-center space-y-6 bg-white p-10 rounded-xl border border-outline-variant shadow-sm">
           <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-            <span className="material-symbols-outlined text-4xl">block</span>
+            <Icon name="block" className="text-4xl" />
           </div>
           <div className="space-y-2">
             <h2 className="font-headline-md text-headline-md">Access Denied</h2>
@@ -78,7 +80,7 @@ function AdminContent() {
             onClick={() => void disconnect().then(() => openModal())}
             className="w-full bg-outline text-on-outline py-4 rounded-lg font-label-caps text-label-caps hover:brightness-90 transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
           >
-            <span className="material-symbols-outlined">swap_horiz</span>
+            <Icon name="swap_horiz" />
             SWITCH WALLET
           </button>
         </div>
@@ -99,19 +101,26 @@ function AdminContent() {
           href="/admin/create" 
           className="bg-primary text-primary-foreground px-6 py-4 rounded-lg font-label-caps text-label-caps flex items-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all shadow-lg"
         >
-          <span className="material-symbols-outlined">add_circle</span>
+          <Icon name="add_circle" />
           CREATE NEW MARKET
+        </Link>
+        <Link
+          href="/admin/agents"
+          className="border border-outline text-on-surface px-6 py-4 rounded-lg font-label-caps text-label-caps flex items-center gap-2 hover:bg-surface-container-low transition-all"
+        >
+          <Icon name="smart_toy" />
+          MANAGE AGENTS
         </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <AdminStat label="Copy-trade volume" value={stats ? `$${stats.totalCopyVolume.toLocaleString()}` : "—"} />
-        <AdminStat label="Markets" value={stats ? String(stats.marketCount) : "—"} change={stats ? `${stats.onChainMarketCount} on-chain` : undefined} />
+        <AdminStat label="Markets (backend db)" value={stats ? String(stats.marketCount) : "—"} change={stats ? `${stats.onChainMarketCount} on-chain ids` : undefined} />
         <AdminStat label="Users" value={stats ? String(stats.subscriberCount) : "—"} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-8 space-y-6">
+        <div className="lg:col-span-12 space-y-6">
           <div className="bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm">
             <div className="p-6 border-b border-outline-variant flex justify-between items-center">
               <h3 className="font-headline-sm text-headline-sm">Active Markets</h3>
@@ -135,34 +144,9 @@ function AdminContent() {
             </div>
           </div>
         </div>
-
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-surface-container-highest border border-outline-variant p-6 rounded-xl space-y-4">
-            <h3 className="font-headline-sm text-headline-sm flex items-center gap-2">System Health <span className="text-[10px] font-label-caps uppercase px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">Demo data</span></h3>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="font-label-caps text-label-caps text-on-surface-variant">Oracle Latency</span>
-                <span className="font-data-mono text-secondary">14ms</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-label-caps text-label-caps text-on-surface-variant">Node Consensus</span>
-                <span className="font-data-mono text-secondary">100%</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-label-caps text-label-caps text-on-surface-variant">Queue Depth</span>
-                <span className="font-data-mono text-on-surface">0.02%</span>
-              </div>
-            </div>
-            <div className="pt-4">
-              <div className="h-1 bg-outline-variant rounded-full overflow-hidden">
-                <div className="h-full bg-secondary w-[99%]"></div>
-              </div>
-              <p className="text-[10px] text-on-surface-variant mt-2 font-label-caps">ALL SYSTEMS OPERATIONAL</p>
-            </div>
-          </div>
-
-        </div>
       </div>
+
+      <DiagnosticsPanel />
     </main>
   );
 }

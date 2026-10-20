@@ -12,6 +12,32 @@ const TABLES: Record<ContractName, Record<number, { message: string }>> = {
   reasoningRegistry: ReasoningRegistryErrors,
 };
 
+/**
+ * Per-contract overrides for error names whose meaning differs by contract
+ * (e.g. "MarketNotOpen" means "not open for trading" in market-core but
+ * "no open exposure" in treasury; "NotInitialized" means something different
+ * in each contract). Checked before the shared FRIENDLY map.
+ */
+const CONTRACT_FRIENDLY: Partial<Record<ContractName, Record<string, string>>> = {
+  treasury: {
+    NotInitialized: "The treasury isn't set up yet.",
+    InvalidConfig: "The treasury's risk settings are invalid.",
+    MarketNotOpen: "The treasury has no open exposure in this market.",
+  },
+  resolver: {
+    NotSigner: "Your wallet isn't one of this market's signers.",
+    AlreadyAttested: "You've already attested this outcome for this market.",
+    ThresholdNotReached: "Not enough signers have attested this outcome yet.",
+    DisputeActive: "A dispute is active for this market's resolution.",
+    NoProposal: "There's no resolution proposal for this market yet.",
+    AlreadyFinalized: "This market has already been finalized.",
+    MarketNotClosed: "This market hasn't closed yet.",
+    WrongMode: "This action doesn't match this market's resolution mode.",
+    StalePrice: "The price feed is too stale to resolve this market.",
+    PriceUnavailable: "No price is available to resolve this market yet.",
+  },
+};
+
 /** Plain-language messages for contract error names, from the user's point of view. */
 export const FRIENDLY: Record<string, string> = {
   // market-core
@@ -40,7 +66,14 @@ export const FRIENDLY: Record<string, string> = {
   DisputeWindowOpen: "The dispute window is still open.",
   // reasoning-registry
   TraceNotFound: "This reasoning trace isn't on-chain.",
+  AgentAlreadyRegistered: "This agent is already registered.",
+  AgentNotRegistered: "This agent isn't registered.",
+  EmptyAction: "The trace action can't be empty.",
+  EmptyCid: "The trace needs an IPFS CID.",
   Unauthorized: "Your wallet isn't allowed to do this.",
+  // shared across contracts
+  NotInitialized: "This contract hasn't been initialized yet.",
+  InvalidFee: "Fees can be at most 10% (1000 bps).",
 };
 
 import type { rpc } from "@stellar/stellar-sdk";
@@ -164,11 +197,23 @@ export function describeError(err: unknown, contract: ContractName = "marketCore
   if (/wrong network|network mismatch/i.test(text)) {
     return { kind: "wrong-network", message: "Switch your wallet to Stellar Testnet and try again." };
   }
+  // Admin-gated contract calls (e.g. market-core's require_admin) fail auth
+  // for any non-admin signer; name this distinctly from a wallet rejection.
+  if (/Error\(Auth, InvalidAction\)|HostError: Error\(Auth/i.test(text)) {
+    return {
+      kind: "contract",
+      code: "NotAdmin",
+      message: "Only the contract admin can do this. Your wallet isn't the admin.",
+    };
+  }
 
   const code = /Error\(Contract, #(\d+)\)/.exec(text);
   if (code) {
     const name = TABLES[contract][Number(code[1])]?.message;
-    if (name) return { kind: "contract", code: name, message: FRIENDLY[name] ?? `The contract rejected this (${name}).` };
+    if (name) {
+      const message = CONTRACT_FRIENDLY[contract]?.[name] ?? FRIENDLY[name] ?? `The contract rejected this (${name}).`;
+      return { kind: "contract", code: name, message };
+    }
     return { kind: "contract", message: `The contract rejected this (error ${code[1]}).` };
   }
   // A binding Err may carry just the name.

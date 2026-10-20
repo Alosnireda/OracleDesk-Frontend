@@ -1,11 +1,12 @@
 import { useSyncExternalStore } from "react";
 import { rpcServer } from "./clients";
 
-export interface LedgerSample {
+export interface LedgerInfo {
   sequence: number;
   closeTime: number;
   observedAt: number;
 }
+export type LedgerSample = LedgerInfo;
 
 interface LedgerPoint {
   sequence: number;
@@ -22,10 +23,11 @@ export async function fetchLatestLedger(): Promise<LedgerPoint> {
 }
 
 export class LedgerClock {
-  private samples: LedgerSample[] = [];
-  private listeners = new Set<() => void>();
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private samples: LedgerInfo[] = [];
+  private listeners = new Set<(ledger?: LedgerInfo) => void>();
+  private pollTimeout: ReturnType<typeof setTimeout> | null = null;
   private tickTimer: ReturnType<typeof setInterval> | null = null;
+  private consecutiveErrors = 0;
   private versionValue = 0;
 
   constructor(
@@ -37,12 +39,35 @@ export class LedgerClock {
     return this.versionValue;
   }
 
+  getLatest(): LedgerInfo | null {
+    return this.samples.at(-1) ?? null;
+  }
+
+  estimateNow(): { ledger: number; time: number } {
+    const latest = this.getLatest();
+    if (!latest) {
+      return {
+        ledger: 0,
+        time: Math.floor(Date.now() / 1000),
+      };
+    }
+    const elapsed = Math.max(0, (performance.now() - latest.observedAt) / 1000);
+    const avgClose = this.averageCloseSeconds();
+    const extrapolatedLedgers = Math.floor(elapsed / avgClose);
+    const growthCap = avgClose * 2;
+    const timeOffset = Math.min(elapsed, growthCap);
+    return {
+      ledger: latest.sequence + extrapolatedLedgers,
+      time: Math.floor(latest.closeTime + timeOffset),
+    };
+  }
+
   now(): number | null {
     const sample = this.samples.at(-1);
     if (!sample) return null;
     const elapsed = (performance.now() - sample.observedAt) / 1000;
     if (elapsed < 0.01) return sample.closeTime;
-    if (elapsed > (this.opts.pollMs ?? 10_000) / 500) return null;
+    if (elapsed > (this.opts.pollMs ?? 5_000) * 10 / 1000) return null;
     const growthCap = this.averageCloseSeconds() * 2;
     return sample.closeTime + Math.min(Math.max(0, elapsed), growthCap);
   }
@@ -51,7 +76,7 @@ export class LedgerClock {
     return this.samples.length < 2 ? this.averageCloseSeconds() : this.averageCloseSeconds() / 2;
   }
 
-  subscribe = (listener: () => void): (() => void) => {
+  subscribe = (listener: (ledger?: LedgerInfo) => void): (() => void) => {
     this.listeners.add(listener);
     if (this.listeners.size === 1) this.start();
     return () => {
@@ -61,43 +86,90 @@ export class LedgerClock {
   };
 
   start(): void {
-    if (this.pollTimer) return;
-    void this.sample();
-    this.pollTimer = setInterval(() => {
-      if (typeof document === "undefined" || document.visibilityState === "visible") void this.sample();
-    }, this.opts.pollMs ?? 10_000);
+    if (this.pollTimeout || this.tickTimer) return;
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", this.onVisibilityChange);
+    }
     this.tickTimer = setInterval(() => this.notify(), 1_000);
-    if (typeof document !== "undefined") document.addEventListener("visibilitychange", this.onVisibilityChange);
+    void this.sampleAndReschedule();
   }
 
   stop(): void {
-    if (this.pollTimer) clearInterval(this.pollTimer);
-    if (this.tickTimer) clearInterval(this.tickTimer);
-    this.pollTimer = null;
-    this.tickTimer = null;
-    if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.onVisibilityChange);
+    if (this.pollTimeout) {
+      clearTimeout(this.pollTimeout);
+      this.pollTimeout = null;
+    }
+    if (this.tickTimer) {
+      clearInterval(this.tickTimer);
+      this.tickTimer = null;
+    }
+    if (typeof document !== "undefined") {
+      document.removeEventListener("visibilitychange", this.onVisibilityChange);
+    }
   }
 
   private onVisibilityChange = () => {
-    if (typeof document === "undefined" || document.visibilityState !== "visible") return;
-    this.samples = [];
-    this.notify();
-    void this.sample();
+    if (typeof document === "undefined") return;
+    if (document.visibilityState === "visible") {
+      this.samples = [];
+      this.notify();
+      if (this.pollTimeout) {
+        clearTimeout(this.pollTimeout);
+        this.pollTimeout = null;
+      }
+      void this.sampleAndReschedule();
+    } else {
+      // Pause immediately when tab becomes hidden
+      if (this.pollTimeout) {
+        clearTimeout(this.pollTimeout);
+        this.pollTimeout = null;
+      }
+    }
   };
 
-  private async sample(): Promise<void> {
-    try {
-      const next = await this.fetchLatest();
-      const previous = this.samples.at(-1);
-      if (previous && (next.sequence < previous.sequence || next.closeTime < previous.closeTime)) return;
-      if (previous && next.sequence === previous.sequence) return;
-      this.samples.push({ ...next, observedAt: performance.now() });
-      this.samples = this.samples.slice(-10);
-      this.notify();
-    } catch {
-      // An unavailable RPC must not be replaced with the machine's wall clock.
-      this.notify();
+  private async sampleAndReschedule(): Promise<void> {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      return;
     }
+
+    try {
+      await this.sample();
+      this.consecutiveErrors = 0;
+      this.scheduleNext(this.opts.pollMs ?? 5_000);
+    } catch {
+      this.consecutiveErrors++;
+      const base = Math.min(60_000, 5_000 * Math.pow(2, this.consecutiveErrors - 1));
+      const jitter = Math.random() * 1_000;
+      const delay = Math.min(60_000, Math.floor(base + jitter));
+      this.scheduleNext(delay);
+    }
+  }
+
+  private scheduleNext(delayMs: number): void {
+    if (this.pollTimeout) clearTimeout(this.pollTimeout);
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      this.pollTimeout = null;
+      return;
+    }
+    this.pollTimeout = setTimeout(() => {
+      void this.sampleAndReschedule();
+    }, delayMs);
+  }
+
+  public async sample(): Promise<void> {
+    const next = await this.fetchLatest();
+    const previous = this.samples.at(-1);
+    // Monotonicity checks: sequence must not regress, closeTime must not regress
+    if (previous && (next.sequence < previous.sequence || next.closeTime < previous.closeTime)) {
+      return;
+    }
+    if (previous && next.sequence === previous.sequence) {
+      return;
+    }
+    const info: LedgerInfo = { ...next, observedAt: performance.now() };
+    this.samples.push(info);
+    this.samples = this.samples.slice(-10);
+    this.notify(info);
   }
 
   private averageCloseSeconds(): number {
@@ -113,13 +185,27 @@ export class LedgerClock {
     return ledgers > 0 ? elapsed / ledgers : this.opts.avgCloseSeconds ?? 5.5;
   }
 
-  private notify(): void {
+  private notify(info?: LedgerInfo): void {
     this.versionValue++;
-    this.listeners.forEach((listener) => listener());
+    this.listeners.forEach((listener) => {
+      try {
+        listener(info);
+      } catch {
+        // Safe listener dispatch
+      }
+    });
   }
 }
 
-const ledgerClock = new LedgerClock(fetchLatestLedger);
+export const ledgerClock = new LedgerClock(fetchLatestLedger, { pollMs: 5_000 });
+
+export function useLedgerClock(): LedgerInfo | null {
+  return useSyncExternalStore(
+    ledgerClock.subscribe,
+    () => ledgerClock.getLatest(),
+    () => null,
+  );
+}
 
 export function useLedgerNow(): { now: number | null; uncertainty: number } {
   useSyncExternalStore(ledgerClock.subscribe, () => ledgerClock.version, () => 0);

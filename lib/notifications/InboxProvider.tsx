@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useEffectEvent, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useWallet } from "@/lib/contexts/WalletContext";
+import { useWalletAddress } from "@/lib/contexts/WalletContext";
 import { useTxTracker } from "@/lib/stellar/tx-tracker";
 import { marketCore, rpcServer } from "@/lib/stellar/clients";
 import { NETWORK_PASSPHRASE } from "@/lib/stellar/config";
@@ -24,7 +24,7 @@ const Context = createContext<InboxView>(empty);
 export const useInbox = () => useContext(Context);
 
 export function InboxProvider({ children }: { children: ReactNode }) {
-  const { address } = useWallet();
+  const { address } = useWalletAddress();
   return address ? <ConnectedInbox key={`${NETWORK_PASSPHRASE}:${address}`} owner={address}>{children}</ConnectedInbox>
     : <Context.Provider value={empty}>{children}</Context.Provider>;
 }

@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import type { MarketCategory, SettlementCurrency } from "./markets";
+import type { MarketCategory, PaginationMeta, SettlementCurrency } from "./markets";
 
 export type AgentType = "MARKET_MAKER" | "TRADER";
 export type UnlockType = "PER_TRACE" | "DAILY_PASS";
@@ -51,8 +51,22 @@ export interface ReasoningTrace {
 
 export interface ListTracesParams {
   agentType?: AgentType | "";
+  marketId?: string;
   page?: number;
   limit?: number;
+}
+
+/** The backend attaches pagination meta to list envelopes, but older
+ * deployments may omit it — narrow instead of trusting the shape. */
+export function isPaginationMeta(meta: unknown): meta is PaginationMeta {
+  if (typeof meta !== "object" || meta === null) return false;
+  const m = meta as Record<string, unknown>;
+  return (
+    typeof m.page === "number" &&
+    typeof m.limit === "number" &&
+    typeof m.total === "number" &&
+    typeof m.totalPages === "number"
+  );
 }
 
 export interface TraceVerification {
@@ -85,7 +99,7 @@ export interface SpendingAllowance {
  */
 export interface PaymentEvent {
   id?: string;
-  type: UnlockType;
+  type: UnlockType | string;
   /** USDC moved by the verified transaction, in 7-decimal base units. */
   amountRaw?: string;
   /** 64-hex Stellar transaction hash; unique across all payments. */
@@ -94,6 +108,8 @@ export interface PaymentEvent {
   traceId?: string | null;
   walletAddress?: string;
   currency?: SettlementCurrency;
+  /** Backend verification state; absent on the unlock receipt shape. */
+  status?: string;
   createdAt: string;
   amount?: number;
   status?: "PENDING" | "CONFIRMED" | "FAILED";
@@ -102,7 +118,7 @@ export interface PaymentEvent {
 
 export async function listTraces(params: ListTracesParams = {}) {
   const { data, meta } = await apiClient.get<ReasoningTrace[]>("/traces", { ...params });
-  return { traces: data, meta };
+  return { traces: data, meta: isPaginationMeta(meta) ? meta : undefined };
 }
 
 export async function getTrace(id: string) {

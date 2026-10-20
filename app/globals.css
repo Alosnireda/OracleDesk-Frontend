@@ -32,12 +32,6 @@
 }
 
 @layer base {
-  .theme {
-    --font-heading: var(--font-geist-sans);
-    --font-sans: var(--font-inter);
-    --font-geist-sans: var(--font-geist-sans);
-    --font-inter: var(--font-inter);
-  }
   :root {
     --background: #f8f9ff;
     --foreground: #0b1c30;
@@ -58,6 +52,12 @@
     --input: oklch(0.922 0 0);
     --ring: oklch(0.708 0 0);
     --radius: 0.125rem;
+    /* Chart strokes/fills: SVG accepts CSS variables, so components carry no hex */
+    --chart-yes: #006c49;
+    --chart-no: #840023;
+    --chart-grid: #bfc8cc;
+    --chart-tick: #6f797c;
+    --chart-axis: #004655;
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);
@@ -137,6 +137,11 @@
     --chart-3: oklch(0.439 0 0);
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
+    --chart-yes: #34d399;
+    --chart-no: #fb7185;
+    --chart-grid: #334155;
+    --chart-tick: #94a3b8;
+    --chart-axis: #7dd3fc;
     --sidebar: oklch(0.205 0 0);
     --sidebar-foreground: oklch(0.985 0 0);
     --sidebar-primary: oklch(0.488 0.243 264.376);
